@@ -9,6 +9,5 @@ def generate_launch_description():
             'use_sim_time',
             default_value='false',
             description='Use simulation (Gazebo) clock if true'),
-        Node(package = "joy",executable = "joy_node"),
-        Node(package='velocity_pub', executable='robot_control.py', output='screen'),
+        Node(package='velocity_pub', executable='test_robot_navigation.py', output='screen')
     ])

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(velocity_pub)
 
+cmake_policy(SET CMP0009 NEW)
+
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
@@ -34,7 +36,11 @@ install(
 install(
     PROGRAMS
     scripts/robot_control.py
-    launch/four_ws_control.launch.py
+    scripts/train_robot_navigation.py
+    scripts/test_robot_navigation.py
+    scripts/configs.yaml
+    launch/train_robot_navigation.launch.py
+    launch/test_robot_navigation.launch.py
     DESTINATION lib/${PROJECT_NAME}
   )
 
