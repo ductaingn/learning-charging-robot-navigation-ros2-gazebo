@@ -39,6 +39,8 @@ class WheeledRobotEnv(gym.Env):
 
         rclpy.init()
         self.node = rclpy.create_node('wheeled_robot_env')
+        self.clock = self.node.get_clock()
+        self.loop_rate = self.node.create_rate(20, self.clock)
         self.vel_msg = Twist()
         self.pos = np.array([0,0,0,0], float)
         self.vel = np.array([0,0,0,0], float) #left_front, right_front, left_rear, right_rear
@@ -67,6 +69,9 @@ class WheeledRobotEnv(gym.Env):
 
         # ROS2 topic for reseting the robot position
         self.pose_pub = self.node.create_publisher(Pose, '/model/fws_robot/pose', 10)
+
+        # ROS2 topic for pause/unpause environment 
+        self.pause_pub = self.node.create_publisher(WorldControl, '/world/empty/control', 10)
 
         # Variable to store robot's position and kinematic information from ROS2 (position, orientation, velocities)
         self.robot_state = {
@@ -104,7 +109,9 @@ class WheeledRobotEnv(gym.Env):
 
         # self.spawn_cylinder('cylinder1',self.goal_pos[0],self.goal_pos[1], 0)
 
-    def timer_callback(self):
+    def take_action(self, action):
+        self.vel_msg.linear.x = float(action[0])
+        self.vel_msg.linear.y = float(action[1])
         V = np.hypot(self.vel_msg.linear.x, self.vel_msg.linear.y)
         sign = np.sign(self.vel_msg.linear.x)
         
@@ -123,10 +130,16 @@ class WheeledRobotEnv(gym.Env):
         pos_array = Float64MultiArray(data=self.pos) 
         vel_array = Float64MultiArray(data=self.vel)
 
-        self.pub_pos.publish(pos_array)
-        self.pub_vel.publish(vel_array)
-        self.pos[:] = 0
-        self.vel[:] = 0
+        try:
+            while rclpy.ok():
+                self.pub_pos.publish(pos_array)
+                self.pub_vel.publish(vel_array)
+                print(action)
+                self.loop_rate.sleep()  
+                break
+
+        except KeyboardInterrupt:
+            pass
 
     def odom_callback(self, msg):
         # Update robot position
@@ -147,6 +160,16 @@ class WheeledRobotEnv(gym.Env):
         # Convert the list of range measurements from the LaserScan message to a NumPy array
         raw_laser_data = np.array(msg.ranges)
         self.laser_data = np.clip(a=raw_laser_data, a_min=self.lidar_min_range, a_max=self.lidar_max_range)
+
+    def pause_sim(self):
+        msg = WorldControl()
+        msg.pause = True
+        self.pause_pub.publish(msg)
+
+    def unpause_sim(self):
+        msg = WorldControl()
+        msg.pause = False
+        self.pause_pub.publish(msg)
 
     def get_obs(self):
         # Use default high readings if lidar data isn't available or complete
@@ -177,32 +200,35 @@ class WheeledRobotEnv(gym.Env):
 
         self.current_num_step +=1
 
+        # Take action
+        self.unpause_sim()
+        self.take_action(action)
+        self.pause_sim()
+
+        # Next observation
+        observation = self.get_obs()
+
         # Calculate reward base on current state
-        if self.current_num_step >= self.max_step:  # Time limit exceeded
-            truncated = True
-        
         if self.collision_check(self.current_obs):
             reward, reward_components = self.get_rewards(collise=True)
             terminated = True
         else:
             reward, reward_components = self.get_rewards(collise=False)
+            
+        if self.current_num_step >= self.max_step:  # Time limit exceeded
+            truncated = True
 
-        # Take action
-        self.vel_msg.linear.x = float(action[0])
-        self.vel_msg.linear.y = float(action[1])*1000
-        self.timer_callback()
-        
-        # Next observation
-        observation = self.get_obs()
-        
         # Step infomation
-        info = reward_components
+        info = {
+            'state': self.robot_state,
+            'action': action,
+            'rewards':reward_components
+        }
 
         return observation, reward, terminated, truncated, info
     
     def collision_check(self, observation)->bool:
         lidar_data:np.ndarray = observation['lidar']
-        print("min:", lidar_data.min())
         if lidar_data.min() <= self.collision_threshold:
             return True
         return False
@@ -238,6 +264,9 @@ class WheeledRobotEnv(gym.Env):
 
     def reset_robot_pos(self, x: float = 0.0, y: float = 0.0, z: float = 0.07):
         # Create the pose message
+        msg = SetEntityPose()
+
+        rq = msg.Request()
         pose = Pose()
         pose.position.x = float(x)
         pose.position.y = float(y)
