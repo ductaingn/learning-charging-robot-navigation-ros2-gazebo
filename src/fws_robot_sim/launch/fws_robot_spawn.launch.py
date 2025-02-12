@@ -108,6 +108,12 @@ def generate_launch_description():
         output='screen'
     )
 
+    pos_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['/world/empty/set_pose@geometry_msgs/msg/Pose@gz.msgs.Pose']
+    )
+
     rviz_config_file = os.path.join(fws_robot_description_path, 'config', 'fws_robot_config.rviz')
 
     rviz = Node(
@@ -139,4 +145,5 @@ def generate_launch_description():
         gz_spawn_entity,
         bridge,
         rviz,
+        pos_bridge
     ])

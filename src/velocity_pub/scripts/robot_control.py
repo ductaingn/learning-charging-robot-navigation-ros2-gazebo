@@ -98,8 +98,7 @@ class Commander(Node):
         else:
             self.pos[:] = 0
             self.vel[:] = 0
-
-
+            
         pos_array = Float64MultiArray(data=self.pos) 
         vel_array = Float64MultiArray(data=self.vel)
 

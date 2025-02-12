@@ -1,4 +1,7 @@
+# How to run
+
 ```
+cd fws_robot_harmonic
 colcon build
 source instal/setup.zsh
 ros2 launch velocity_pub four_ws_control.launch.py 
