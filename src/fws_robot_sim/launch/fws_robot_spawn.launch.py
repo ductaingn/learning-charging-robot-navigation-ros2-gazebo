@@ -33,7 +33,7 @@ def generate_launch_description():
         )
 
     arguments = LaunchDescription([
-                DeclareLaunchArgument('world', default_value='depot',
+                DeclareLaunchArgument('world', default_value='depot_with_capsule_goal',
                           description='Gz sim World'),
            ]
     )
@@ -114,6 +114,12 @@ def generate_launch_description():
         arguments=['/world/empty/set_pose@geometry_msgs/msg/Pose@gz.msgs.Pose']
     )
 
+    world_control_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['/world/empty/control@ros_gz_interfaces/srv/ControlWorld']
+    )
+
     rviz_config_file = os.path.join(fws_robot_description_path, 'config', 'fws_robot_config.rviz')
 
     rviz = Node(
@@ -145,5 +151,5 @@ def generate_launch_description():
         gz_spawn_entity,
         bridge,
         rviz,
-        pos_bridge
+        world_control_bridge
     ])

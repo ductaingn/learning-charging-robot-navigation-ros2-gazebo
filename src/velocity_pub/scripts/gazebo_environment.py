@@ -16,6 +16,7 @@ from ros_gz_interfaces.srv import SpawnEntity, SetEntityPose
 from ros_gz_interfaces.msg import Entity, WorldControl
 from geometry_msgs.msg import Pose
 from std_srvs.srv import Empty
+import subprocess
 
 class WheeledRobotEnv(gym.Env):
     def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, collision_threshold:float, goal_threshold:float, robot_max_lin_vel:float, reward_coeff:dict):
@@ -88,17 +89,17 @@ class WheeledRobotEnv(gym.Env):
         self.observation_space = gym.spaces.Dict(
             {
                 "odometry": gym.spaces.Box(
-                    low=np.array([-self.environment_shape[0]/2, -self.environment_shape[1]/2, -np.pi/2, 0, 0]),
-                    high=np.array([self.environment_shape[0]/2, self.environment_shape[1]/2, np.pi/2, robot_max_lin_vel, np.pi])
+                    low=np.array([-self.environment_shape[0]/2, -self.environment_shape[1]/2, -np.pi/2, 0, 0,0]),
+                    high=np.array([self.environment_shape[0]/2, self.environment_shape[1]/2, np.pi/2, robot_max_lin_vel, np.pi, 100])
                 ),
                 "lidar": gym.spaces.Box(self.lidar_min_range, self.lidar_max_range, shape=(self.lidar_dim, ))
             }
         )
 
+        self.goal_pos:np.ndarray = np.array([15.0, -2.0])
+        self.current_num_step = 0
         self.current_obs:dict[np.ndarray, np.ndarray] = self.get_obs()
         self.prev_obs:dict[np.ndarray, np.ndarray] = self.current_obs
-        self.goal_pos:np.ndarray = np.zeros(2)
-        self.current_num_step = 0
 
         executor = rclpy.executors.MultiThreadedExecutor()
         executor.add_node(self.node)
@@ -134,14 +135,13 @@ class WheeledRobotEnv(gym.Env):
             while rclpy.ok():
                 self.pub_pos.publish(pos_array)
                 self.pub_vel.publish(vel_array)
-                print(action)
                 self.loop_rate.sleep()  
                 break
 
         except KeyboardInterrupt:
             pass
 
-    def odom_callback(self, msg):
+    def odom_callback(self, msg:Odometry):
         # Update robot position
         self.robot_state['x'] = msg.pose.pose.position.x
         self.robot_state['y'] = msg.pose.pose.position.y
@@ -177,14 +177,16 @@ class WheeledRobotEnv(gym.Env):
             lidar_data = np.full((self.lidar_dim,), self.lidar_max_range, dtype=np.float32)
         else:
             lidar_data = np.array(self.laser_data[:self.lidar_dim], dtype=np.float32)
-
+                
         # Pack the latest odometry information into an array
+        d_goal = np.linalg.norm(np.array([self.robot_state['x'], self.robot_state['y']]) - self.goal_pos)
         odometry = np.array([
             self.robot_state['x'],
             self.robot_state['y'],
             self.robot_state['theta'],
             self.robot_state['linear_vel'],
-            self.robot_state['angular_vel']
+            self.robot_state['angular_vel'],
+            d_goal
         ], dtype=np.float32)
 
         # Return both sensor modalities in a dictionary
@@ -215,14 +217,14 @@ class WheeledRobotEnv(gym.Env):
         else:
             reward, reward_components = self.get_rewards(collise=False)
             
-        if self.current_num_step >= self.max_step:  # Time limit exceeded
-            truncated = True
+        # if self.current_num_step >= self.max_step:  # Time limit exceeded
+        #     truncated = True
 
         # Step infomation
         info = {
             'state': self.robot_state,
             'action': action,
-            'rewards':reward_components
+            'rewards': reward_components
         }
 
         return observation, reward, terminated, truncated, info
@@ -262,26 +264,24 @@ class WheeledRobotEnv(gym.Env):
 
         return reward, reward_components
 
-    def reset_robot_pos(self, x: float = 0.0, y: float = 0.0, z: float = 0.07):
-        # Create the pose message
-        msg = SetEntityPose()
+    def set_robot_pose(self, x:float, y:float, z:float):
+        command = [
+            "gz", "service", "-s", "/world/empty/set_pose",
+            "--reqtype", "gz.msgs.Pose", "--reptype", "gz.msgs.Boolean",
+            "--timeout", "2000",
+            "--req", 'name: "fws_robot", position: {x:0.0, y:0.0, z:0.07}'
+        ]
+        command[-1] = f'name: "fws_robot", position: {{x:{x}, y:{y}, z:{z}}}'
 
-        rq = msg.Request()
-        pose = Pose()
-        pose.position.x = float(x)
-        pose.position.y = float(y)
-        pose.position.z = float(z)
+        # Run the command with updated coordinates
+        result = subprocess.run(command, capture_output=True, text=True)
 
-        pose.orientation.x = 0.0
-        pose.orientation.y = 0.0
-        pose.orientation.z = 0.0
-        pose.orientation.w = 1.0
-
-        self.pose_pub.publish(pose)
+        if result.stdout=='data: true\n\n':
+            print('Set robot position succesfully!')
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
-        self.reset_robot_pos(x=-20)
+        self.set_robot_pose(0.0, 0.0, 0.07)
 
         observation = self.get_obs()
         info = {}

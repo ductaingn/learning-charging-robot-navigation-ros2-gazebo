@@ -14,6 +14,6 @@ if __name__ == "__main__":
 
     model = sb3.SAC("MultiInputPolicy", env, verbose=1)
 
-    model.learn(total_timesteps=1,progress_bar=True)
+    model.learn(total_timesteps=configs['max_step'], progress_bar=True)
     model.save("model/wheeled_robot_SAC")
     env.close()

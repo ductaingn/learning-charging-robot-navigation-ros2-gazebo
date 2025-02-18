@@ -1,10 +1,10 @@
-max_step: 100
+max_step: 100000
 environment_shape: [50,50] #[m] not defined in this file
 lidar_dim: 360 # not defined in this file
 lidar_max_range: 30 #[m], not defined in this file
 lidar_min_range: 0.2 #[m], not defined in this file
-collision_threshold: 0.5 #[m]
-goal_threshold: 0.5 #[m]
+collision_threshold: 0.21 #[m]
+goal_threshold: 0.21 #[m]
 robot_max_lin_vel: 3 #[m/s]
 reward_coeff:
   goal:
