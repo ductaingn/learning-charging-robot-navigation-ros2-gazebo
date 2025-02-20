@@ -8,7 +8,7 @@ goal_threshold: 0.21 #[m]
 robot_max_lin_vel: 3 #[m/s]
 reward_coeff:
   goal:
-    coeff: 1
+    coeff: 20
     reach: 100
   collision:
     coeff: 1

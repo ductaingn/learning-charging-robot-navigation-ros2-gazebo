@@ -64,7 +64,10 @@ def generate_launch_description():
         package='robot_state_publisher',
         executable='robot_state_publisher',
         output='screen',
-        parameters=[params]
+        parameters=[
+            params, 
+            {'use_sim_time': use_sim_time}
+        ]
     )
 
     gz_spawn_entity = Node(
@@ -80,6 +83,7 @@ def generate_launch_description():
                    '-Y', '0.0',
                    '-name', 'fws_robot',
                    '-allow_renaming', 'false'],
+        parameters=[{'use_sim_time': use_sim_time}]
     )
 
     load_joint_state_controller = ExecuteProcess(
@@ -105,19 +109,36 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=['/scan@sensor_msgs/msg/LaserScan@gz.msgs.LaserScan'],
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+
+    clock_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
         output='screen'
     )
 
-    pos_bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        arguments=['/world/empty/set_pose@geometry_msgs/msg/Pose@gz.msgs.Pose']
-    )
+
+    # pos_bridge = Node(
+    #     package='ros_gz_bridge',
+    #     executable='parameter_bridge',
+    #     arguments=['/world/empty/set_pose@geometry_msgs/msg/Pose@gz.msgs.Pose']
+    # )
 
     world_control_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
-        arguments=['/world/empty/control@ros_gz_interfaces/srv/ControlWorld']
+        arguments=['/world/empty/control@ros_gz_interfaces/srv/ControlWorld'],
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+
+    robot_pose_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=['/model/fws_robot/pose@geometry_msgs/msg/PoseArray@gz.msgs.Pose_V'],
+        parameters=[{'use_sim_time': use_sim_time}]
     )
 
     rviz_config_file = os.path.join(fws_robot_description_path, 'config', 'fws_robot_config.rviz')
@@ -128,6 +149,7 @@ def generate_launch_description():
         name="rviz2",
         output="log",
         arguments=["-d", rviz_config_file],
+        parameters=[{'use_sim_time': use_sim_time}]
     )
 
     return LaunchDescription([
@@ -147,9 +169,11 @@ def generate_launch_description():
         gazebo_resource_path,
         arguments,
         gazebo,
+        clock_bridge,
         node_robot_state_publisher,
         gz_spawn_entity,
         bridge,
         rviz,
-        world_control_bridge
+        world_control_bridge,
+        robot_pose_bridge
     ])

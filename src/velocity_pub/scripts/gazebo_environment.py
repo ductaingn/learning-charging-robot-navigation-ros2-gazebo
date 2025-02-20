@@ -3,7 +3,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from gymnasium import spaces
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PoseArray
 from std_msgs.msg import Float64MultiArray
 from sensor_msgs.msg import LaserScan
 from typing import Optional
@@ -17,6 +17,7 @@ from ros_gz_interfaces.msg import Entity, WorldControl
 from geometry_msgs.msg import Pose
 from std_srvs.srv import Empty
 import subprocess
+import wandb
 
 class WheeledRobotEnv(gym.Env):
     def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, collision_threshold:float, goal_threshold:float, robot_max_lin_vel:float, reward_coeff:dict):
@@ -61,15 +62,12 @@ class WheeledRobotEnv(gym.Env):
         )
 
         # ROS2 topic for odometry data
-        self.odom_sub = self.node.create_subscription(
-            Odometry,
-            '/tf',
-            self.odom_callback,
+        self.robot_pose_sub = self.node.create_subscription(
+            PoseArray,
+            '/model/fws_robot/pose',
+            self.robot_pose_callback,
             10
         )
-
-        # ROS2 topic for reseting the robot position
-        self.pose_pub = self.node.create_publisher(Pose, '/model/fws_robot/pose', 10)
 
         # ROS2 topic for pause/unpause environment 
         self.pause_pub = self.node.create_publisher(WorldControl, '/world/empty/control', 10)
@@ -79,7 +77,8 @@ class WheeledRobotEnv(gym.Env):
             'x': 0.0,           # X position
             'y': 0.0,           # Y position
             'theta': 0.0,       # Orientation angle (radians)
-            'linear_vel': 0.0,  # Linear velocity
+            'linear_vel_x': 0.0,  # Linear velocity
+            'linear_vel_y': 0.0,  # Linear velocity
             'angular_vel': 0.0  # Angular velocity
         }
 
@@ -89,8 +88,8 @@ class WheeledRobotEnv(gym.Env):
         self.observation_space = gym.spaces.Dict(
             {
                 "odometry": gym.spaces.Box(
-                    low=np.array([-self.environment_shape[0]/2, -self.environment_shape[1]/2, -np.pi/2, 0, 0,0]),
-                    high=np.array([self.environment_shape[0]/2, self.environment_shape[1]/2, np.pi/2, robot_max_lin_vel, np.pi, 100])
+                    low=np.array([-self.environment_shape[0]/2, -self.environment_shape[1]/2, -np.pi/2, 0, 0, 0,0]),
+                    high=np.array([self.environment_shape[0]/2, self.environment_shape[1]/2, np.pi/2, robot_max_lin_vel, robot_max_lin_vel, np.pi, 100])
                 ),
                 "lidar": gym.spaces.Box(self.lidar_min_range, self.lidar_max_range, shape=(self.lidar_dim, ))
             }
@@ -98,8 +97,8 @@ class WheeledRobotEnv(gym.Env):
 
         self.goal_pos:np.ndarray = np.array([15.0, -2.0])
         self.current_num_step = 0
-        self.current_obs:dict[np.ndarray, np.ndarray] = self.get_obs()
-        self.prev_obs:dict[np.ndarray, np.ndarray] = self.current_obs
+        self.prev_obs:dict[np.ndarray, np.ndarray] = None
+        self.current_obs:dict[np.ndarray, np.ndarray] = self.get_obs(initialize=True)
 
         executor = rclpy.executors.MultiThreadedExecutor()
         executor.add_node(self.node)
@@ -107,6 +106,10 @@ class WheeledRobotEnv(gym.Env):
         executor_thread = threading.Thread(target=executor.spin, daemon=True)
         executor_thread.start()
         rate = self.node.create_rate(2)
+
+        wandb.init(
+            project="learning robot navigation",
+        )
 
         # self.spawn_cylinder('cylinder1',self.goal_pos[0],self.goal_pos[1], 0)
 
@@ -141,20 +144,29 @@ class WheeledRobotEnv(gym.Env):
         except KeyboardInterrupt:
             pass
 
-    def odom_callback(self, msg:Odometry):
+    def robot_pose_callback(self, msg:PoseArray):
         # Update robot position
-        self.robot_state['x'] = msg.pose.pose.position.x
-        self.robot_state['y'] = msg.pose.pose.position.y
+        if msg.poses:
+            pose:Pose = msg.poses[-1]
+            self.robot_state['x'] = pose.position.x
+            self.robot_state['y'] = pose.position.y
 
-        # Convert quaternion to yaw (theta)
-        q = msg.pose.pose.orientation
-        siny_cosp = 2 * (q.w * q.z + q.x * q.y)
-        cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
-        self.robot_state['theta'] = np.arctan2(siny_cosp, cosy_cosp)
+            # Convert quaternion (x, y, z, w) to yaw angle
+            q = pose.orientation
+            siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
+            cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+            self.robot_state['theta'] = np.arctan2(siny_cosp, cosy_cosp)
+        else:
+            self.node.get_logger().warn("Received empty pose array in robot_pose_callback")
+            
+        self.robot_state['linear_vel_x'] = self.vel_msg.linear.x
+        self.robot_state['linear_vel_y'] = self.vel_msg.linear.y
 
-        # Update velocities
-        self.robot_state['linear_vel'] = msg.twist.twist.linear.x
-        self.robot_state['angular_vel'] = msg.twist.twist.angular.z
+        if(self.vel_msg.linear.x != 0):
+            ang = self.vel_msg.linear.y / self.vel_msg.linear.x
+        else:
+            ang = 0
+        self.robot_state['angular_vel'] = np.arctan(ang)
 
     def lidar_callback(self, msg):
         # Convert the list of range measurements from the LaserScan message to a NumPy array
@@ -171,7 +183,7 @@ class WheeledRobotEnv(gym.Env):
         msg.pause = False
         self.pause_pub.publish(msg)
 
-    def get_obs(self):
+    def get_obs(self, initialize:bool=False):
         # Use default high readings if lidar data isn't available or complete
         if self.laser_data is None or len(self.laser_data) < self.lidar_dim:
             lidar_data = np.full((self.lidar_dim,), self.lidar_max_range, dtype=np.float32)
@@ -184,13 +196,29 @@ class WheeledRobotEnv(gym.Env):
             self.robot_state['x'],
             self.robot_state['y'],
             self.robot_state['theta'],
-            self.robot_state['linear_vel'],
+            self.robot_state['linear_vel_x'],
+            self.robot_state['linear_vel_y'],
             self.robot_state['angular_vel'],
             d_goal
         ], dtype=np.float32)
 
-        # Return both sensor modalities in a dictionary
-        self.current_obs = {'odometry': odometry, 'lidar': lidar_data}
+        if initialize:
+            self.prev_obs = {
+                'odometry': odometry, 
+                'lidar': lidar_data
+            }
+        
+        else:
+            self.prev_obs = {
+                'odometry': self.current_obs['odometry'].copy(), 
+                'lidar': self.current_obs['lidar'].copy()
+            }
+        
+        self.current_obs = {
+            'odometry': odometry, 
+            'lidar': lidar_data
+        }
+
         return self.current_obs
        
     def step(self, action):
@@ -199,6 +227,16 @@ class WheeledRobotEnv(gym.Env):
         terminated = False
         truncated = False
         info = {}
+
+        wandb.log({
+            "State / X-Coordinate": self.current_obs["odometry"][0],
+            "State / Y-Coordinate": self.current_obs["odometry"][1],
+            "State / Theta": self.current_obs["odometry"][2],
+            "State / Linear Velocity X": self.current_obs["odometry"][3],
+            "State / Linear Velocity Y": self.current_obs["odometry"][4],
+            "State / Angular Velocity": self.current_obs["odometry"][5],
+            "State / Distance to Goal": self.current_obs["odometry"][6],
+        })
 
         self.current_num_step +=1
 
@@ -227,6 +265,17 @@ class WheeledRobotEnv(gym.Env):
             'rewards': reward_components
         }
 
+        wandb.log({
+            "Actions / Linear-X Velocity": float(action[0]),
+            "Actions / Linear-Y Velocity": float(action[1]),
+
+            "Reward Sum": reward,
+            "Reward Components / Collision ": reward_components.get("collision", 0),
+            "Reward Components / Goal": reward_components.get("goal", 0),
+            "Reward Components / Velocity": reward_components.get("velocity", 0),
+            "Reward Components / Angular": reward_components.get("angular", 0)
+        })
+
         return observation, reward, terminated, truncated, info
     
     def collision_check(self, observation)->bool:
@@ -252,13 +301,17 @@ class WheeledRobotEnv(gym.Env):
         if goal_distance <= self.collision_threshold:
             reward_components['goal'] = self.reward_coeff['goal']['reach']
         else:
-            reward_components['goal'] = self.reward_coeff['goal']['coeff']*0
+            robot_prev_pos = self.prev_obs['odometry'][:2]
+            prev_goal_distance = np.linalg.norm(robot_prev_pos - self.goal_pos)
+            reward_components['goal'] = self.reward_coeff['goal']['coeff']*(prev_goal_distance-goal_distance)
 
         # To-do: Adjust
         # Reward velocity
-        linear_vel = self.current_obs['odometry'][3] # linear velocity
+        linear_vel = np.sqrt(self.current_obs['odometry'][3]**2 + self.current_obs['odometry'][4]**2) # linear velocity
         if linear_vel < 1:
-            reward_components['velocity'] = -1
+            reward_components['velocity'] = -0.1
+
+        reward_components['angular'] = -np.abs(self.current_obs['odometry'][5])
 
         reward = sum(reward_components.values())
 

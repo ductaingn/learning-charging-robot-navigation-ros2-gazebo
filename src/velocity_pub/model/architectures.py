@@ -3,8 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal
-from stable_baselines3 import PPO
-from stable_baselines3.common.policies import ActorCriticPolicy
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
