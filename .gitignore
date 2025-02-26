@@ -3,3 +3,4 @@ install
 log
 test.ipynb
 wandb
+trained_weights/**/*.pkl

@@ -27,13 +27,14 @@ def generate_launch_description():
     gazebo_resource_path = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH',
         value=[
+            os.environ['GZ_SIM_RESOURCE_PATH'], ':' +
             os.path.join(fws_robot_sim_path, 'worlds'), ':' +
             str(Path(fws_robot_description_path).parent.resolve())
             ]
         )
 
     arguments = LaunchDescription([
-                DeclareLaunchArgument('world', default_value='depot_with_capsule_goal',
+                DeclareLaunchArgument('world', default_value='home',
                           description='Gz sim World'),
            ]
     )
@@ -119,13 +120,6 @@ def generate_launch_description():
         arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
         output='screen'
     )
-
-
-    # pos_bridge = Node(
-    #     package='ros_gz_bridge',
-    #     executable='parameter_bridge',
-    #     arguments=['/world/empty/set_pose@geometry_msgs/msg/Pose@gz.msgs.Pose']
-    # )
 
     world_control_bridge = Node(
         package='ros_gz_bridge',

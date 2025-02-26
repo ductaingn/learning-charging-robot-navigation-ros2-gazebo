@@ -18,6 +18,7 @@
         <use_pose_vector_msg>true</use_pose_vector_msg>
         <publish_nested_model_pose>true</publish_nested_model_pose>
       </plugin>
+      <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"></plugin>
     </gazebo>
 
     <gazebo reference="lidar_head_link" >
@@ -47,7 +48,17 @@
           </range>
           <frame_id>/lidar_head_link</frame_id>
         </lidar>
-        <alwaysOn>ture</alwaysOn>
+        <alwaysOn>true</alwaysOn>
+        <visualize>true</visualize>
+      </sensor>
+    </gazebo>
+
+    <gazebo reference="lidar_head_link" >
+      <sensor name="imu_sensor" type="imu">
+        <gz_frame_id>lidar_head_link</gz_frame_id>
+        <topic>imu</topic>
+        <update_rate>30</update_rate>
+        <alwaysOn>true</alwaysOn>
         <visualize>true</visualize>
       </sensor>
     </gazebo>
