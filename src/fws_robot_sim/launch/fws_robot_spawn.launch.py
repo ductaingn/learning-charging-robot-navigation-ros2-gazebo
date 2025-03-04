@@ -34,7 +34,7 @@ def generate_launch_description():
         )
 
     arguments = LaunchDescription([
-                DeclareLaunchArgument('world', default_value='home',
+                DeclareLaunchArgument('world', default_value='test',
                           description='Gz sim World'),
            ]
     )
