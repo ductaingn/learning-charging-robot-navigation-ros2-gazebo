@@ -1326,7 +1326,7 @@
           <geometry>
             <mesh>
               <scale>1.5 1.5 1.5</scale>
-              <uri>file:///home/nguyen/gazebo_models/dumpster/meshes/dumpster.dae</uri>
+              <uri>file:///home/bell/gazebo_models/dumpster/meshes/dumpster.dae</uri>
             </mesh>
           </geometry>
           <max_contacts>10</max_contacts>
@@ -1347,13 +1347,13 @@
           <geometry>
             <mesh>
               <scale>1.5 1.5 1.5</scale>
-              <uri>file:///home/nguyen/gazebo_models/dumpster/meshes/dumpster.dae</uri>
+              <uri>file:///home/bell/gazebo_models/dumpster/meshes/dumpster.dae</uri>
             </mesh>
           </geometry>
           <material>
             <script>
-              <uri>file:///home/nguyen/gazebo_models/dumpster/materials/scripts</uri>
-              <uri>file:///home/nguyen/gazebo_models/dumpster/materials/textures</uri>
+              <uri>file:///home/bell/gazebo_models/dumpster/materials/scripts</uri>
+              <uri>file:///home/bell/gazebo_models/dumpster/materials/textures</uri>
               <name>Dumpster/Diffuse</name>
             </script>
             <diffuse>1 1 1 1</diffuse>
@@ -1393,7 +1393,7 @@
         <collision name='collision'>
           <geometry>
             <mesh>
-              <uri>file:///home/nguyen/gazebo_models/fire_hydrant/meshes/fire_hydrant.dae</uri>
+              <uri>file:///home/bell/gazebo_models/fire_hydrant/meshes/fire_hydrant.dae</uri>
             </mesh>
           </geometry>
           <max_contacts>10</max_contacts>
@@ -1413,7 +1413,7 @@
         <visual name='visual'>
           <geometry>
             <mesh>
-              <uri>file:///home/nguyen/gazebo_models/fire_hydrant/meshes/fire_hydrant.dae</uri>
+              <uri>file:///home/bell/gazebo_models/fire_hydrant/meshes/fire_hydrant.dae</uri>
             </mesh>
           </geometry>
         </visual>
@@ -1698,7 +1698,7 @@
           <pose>0 0 -0.14999999999999999 0 0 0</pose>
           <geometry>
             <mesh>
-              <uri>file:///home/nguyen/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
+              <uri>file:///home/bell/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
               <scale>1.25932 1.00745 0.75559100000000001</scale>
             </mesh>
           </geometry>
@@ -1758,7 +1758,7 @@
           <pose>0 0 -0.14999999999999999 0 0 0</pose>
           <geometry>
             <mesh>
-              <uri>file:///home/nguyen/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
+              <uri>file:///home/bell/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
               <scale>1.25932 1.00745 0.75559100000000001</scale>
             </mesh>
           </geometry>
@@ -1818,7 +1818,7 @@
           <pose>0 0 -0.14999999999999999 0 0 0</pose>
           <geometry>
             <mesh>
-              <uri>file:///home/nguyen/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
+              <uri>file:///home/bell/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
               <scale>1.25932 1.00745 0.75559100000000001</scale>
             </mesh>
           </geometry>
@@ -1878,7 +1878,7 @@
           <pose>0 0 -0.14999999999999999 0 0 0</pose>
           <geometry>
             <mesh>
-              <uri>file:///home/nguyen/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
+              <uri>file:///home/bell/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
               <scale>1.25932 1.00745 0.75559100000000001</scale>
             </mesh>
           </geometry>
@@ -1938,7 +1938,7 @@
           <pose>0 0 -0.14999999999999999 0 0 0</pose>
           <geometry>
             <mesh>
-              <uri>file:///home/nguyen/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
+              <uri>file:///home/bell/gazebo_models/cardboard_box/meshes/cardboard_box.dae</uri>
               <scale>1.25932 1.00745 0.75559100000000001</scale>
             </mesh>
           </geometry>
