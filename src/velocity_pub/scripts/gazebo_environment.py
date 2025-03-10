@@ -262,10 +262,10 @@ class WheeledRobotEnv(gym.Env):
         future = self.control_world_client.call_async(request)
         rclpy.spin_until_future_complete(self.node, future)
         
-        if not future.result():
-            self.node.get_logger().error('WorldControl Service call failed')
-        else:
-            self.node.get_logger().info(f'Pause: {pause}')
+        # if not future.result():
+        #     self.node.get_logger().error('WorldControl Service call failed')
+        # else:
+        #     self.node.get_logger().info(f'Pause: {pause}')
 
     def get_obs(self, initialize:bool=False):
         # Use default high readings if lidar data isn't available or complete

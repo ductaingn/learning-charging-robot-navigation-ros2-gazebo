@@ -89,7 +89,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>ROOF</name>
                 <center>false</center>
@@ -110,7 +110,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/ROOF_Diffuse</name>
             </script>
@@ -120,7 +120,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>WALLS</name>
                 <center>false</center>
@@ -140,7 +140,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/WALLS_Diffuse</name>
             </script>
@@ -150,7 +150,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>PILLERS</name>
                 <center>false</center>
@@ -170,7 +170,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/PILLERS_Diffuse</name>
             </script>
@@ -180,7 +180,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>FANS</name>
                 <center>false</center>
@@ -200,7 +200,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/FAN_Diffuse</name>
             </script>
@@ -210,7 +210,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>WINDOW</name>
                 <center>false</center>
@@ -228,7 +228,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/WINDOW_Diffuse</name>
             </script>
@@ -238,7 +238,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>INTERCOM</name>
                 <center>false</center>
@@ -259,7 +259,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/INTERCOM_Diffuse</name>
             </script>
@@ -269,7 +269,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>FireAlarm</name>
                 <center>false</center>
@@ -289,7 +289,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/FireAlarm_Diffuse</name>
             </script>
@@ -299,7 +299,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>FireAlarmPole</name>
                 <center>false</center>
@@ -319,7 +319,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/FireAlarmPole</name>
             </script>
@@ -329,7 +329,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>Pipes</name>
                 <center>false</center>
@@ -349,7 +349,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/Pipes_Diffuse</name>
             </script>
@@ -359,7 +359,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>STAIRS</name>
                 <center>false</center>
@@ -379,7 +379,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/STAIRS_Diffuse</name>
             </script>
@@ -389,7 +389,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>BOXSET</name>
                 <center>false</center>
@@ -410,7 +410,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/BOXSET_Diffuse</name>
             </script>
@@ -420,7 +420,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>FLOOR</name>
                 <center>false</center>
@@ -440,7 +440,7 @@
               </metal>
             </pbr>
             <script>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/materials/scripts/</uri>
               <uri>materials/textures/</uri>
               <name>UrbanTile/FLOOR_Diffuse</name>
             </script>
@@ -450,7 +450,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>FanBack</name>
                 <center>false</center>
@@ -471,7 +471,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Crates.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Crates.dae</uri>
             </mesh>
           </geometry>
           <material>
@@ -508,7 +508,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>FAN1</name>
                 <center>false</center>
@@ -569,7 +569,7 @@
           <geometry>
             <mesh>
               <scale>0.59999999999999998 0.59999999999999998 0.59999999999999998</scale>
-              <uri>file:///home/nguyen/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
+              <uri>file:///home/bell/.gz/fuel/fuel.gazebosim.org/openrobotics/models/depot/6/meshes/Depot.dae</uri>
               <submesh>
                 <name>FAN1</name>
                 <center>false</center>

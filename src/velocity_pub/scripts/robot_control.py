@@ -8,7 +8,7 @@ from std_msgs.msg import Float64MultiArray
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Joy
 import sys
-sys.path.append('/home/nguyen/anaconda3/envs/conda_venv/lib/python3.12/site-packages')
+sys.path.append('/home/bell/anaconda3/envs/conda_venv/lib/python3.12/site-packages')
 import torch
 
 vel_msg = Twist()  # robot velocity
