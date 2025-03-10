@@ -6,7 +6,7 @@ lidar_min_range: 0.2 #[m], not defined in this file
 n_history_frame: 8 
 n_waypoints: 1
 collision_threshold: 0.21 #[m]
-goal_threshold: 0.21 #[m]
+goal_threshold: 0.5 #[m]
 robot_max_lin_vel: 3.0 #[m/s]
 real_time_factor: 5.0 # not defined in this file
 delta_t: 0.2

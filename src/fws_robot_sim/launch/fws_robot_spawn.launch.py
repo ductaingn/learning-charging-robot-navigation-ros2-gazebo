@@ -34,7 +34,7 @@ def generate_launch_description():
         )
 
     arguments = LaunchDescription([
-                DeclareLaunchArgument('world', default_value='test',
+                DeclareLaunchArgument('world', default_value='boston_1',
                           description='Gz sim World'),
            ]
     )
@@ -76,8 +76,8 @@ def generate_launch_description():
         executable='create',
         output='screen',
         arguments=['-string', robot_desc,
-                   '-x', '0.0',
-                   '-y', '0.0',
+                   '-x', '-8.0',
+                   '-y', '8.0',
                    '-z', '0.07',
                    '-R', '0.0',
                    '-P', '0.0',
