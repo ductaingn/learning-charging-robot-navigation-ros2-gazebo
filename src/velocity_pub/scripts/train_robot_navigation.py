@@ -14,6 +14,14 @@ if __name__ == "__main__":
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configs.yaml')
     with open(config_path) as file:
         configs = yaml.safe_load(file)
+    map_info = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'map_info.yaml')
+    with open(map_info) as file:
+        map_info = yaml.safe_load(file)
+    map_name = str(map_info['using_map_name'])
+    start_x, start_y, start_z, start_roll, start_pitch, start_yaw = list(map_info[map_name]['start'])
+    configs['start_pos'] = [start_x, start_y, start_z]
+    goal_x, goal_y, goal_z, goal_roll, goal_pitch, goal_yaw = list(map_info[map_name]['goal'])
+    configs['goal_pos'] = [goal_x, goal_y, goal_z]
 
     # Use for saving models and logs
     time_now = datetime.now().strftime("SB3-%Y-%m-%d-%H-%M-%S")

@@ -4,22 +4,21 @@ import rclpy
 from rclpy.node import Node
 from gymnasium import spaces
 from geometry_msgs.msg import Twist, PoseArray
-from std_msgs.msg import Float64MultiArray
 from sensor_msgs.msg import LaserScan
 from typing import Optional
-from nav_msgs.msg import Odometry
-from visualization_msgs.msg import Marker, MarkerArray
-import torch
+from nav_msgs.msg import Path, Odometry
 import threading
 from ros_gz_interfaces.srv import SpawnEntity, SetEntityPose, ControlWorld
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseStamped
 import subprocess
 import wandb
 from rclpy.qos import qos_profile_system_default
 import time
+from tf_transformations import euler_from_quaternion, quaternion_from_euler
+from nav2_simple_commander.robot_navigator import BasicNavigator
 
 class WheeledRobotEnv(gym.Env):
-    def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, n_history_frame:int, collision_threshold:float, n_waypoints:int, goal_threshold:float, robot_max_lin_vel:float, reward_coeff:dict, real_time_factor:float, delta_t:float):
+    def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, n_history_frame:int, collision_threshold:float, n_waypoints:int, goal_threshold:float, robot_max_lin_vel:float, reward_coeff:dict, real_time_factor:float, delta_t:float, start_pos:list[float, float, float], goal_pos:list[float, float, float]):
         """
         Initialize the WheeledRobotEnv environment.
 
@@ -90,24 +89,12 @@ class WheeledRobotEnv(gym.Env):
         self.real_time_factor = real_time_factor
         self.delta_t = delta_t
 
-        # Robot dimensions
-        self.wheel_seperation = 0.122
-        self.wheel_base = 0.156
-        self.wheel_radius = 0.026
-        self.wheel_steering_y_offset = 0.03
-        self.steering_track = self.wheel_seperation - 2*self.wheel_steering_y_offset
-
         rclpy.init()
         self.node = rclpy.create_node('wheeled_robot_env')
-        self.clock = self.node.get_clock()
-        self.loop_rate = self.node.create_rate(20, self.clock)
         self.vel_msg = Twist()
-        self.pos = np.array([0,0,0,0], float)
-        self.vel = np.array([0,0,0,0], float) #left_front, right_front, left_rear, right_rear
 
         # ROS2 topic for controlling the robot
-        self.pub_pos = self.node.create_publisher(Float64MultiArray, '/forward_position_controller/commands', 10)
-        self.pub_vel = self.node.create_publisher(Float64MultiArray, '/forward_velocity_controller/commands', 10)
+        self.pub_twist = self.node.create_publisher(Twist, '/cmd_vel', 10)
 
         # ROS2 topic for lidar data
         self.current_lidar_data = np.full(self.lidar_dim, self.lidar_max_range, float)
@@ -121,8 +108,8 @@ class WheeledRobotEnv(gym.Env):
 
         # ROS2 topic for odometry data
         self.robot_pose_sub = self.node.create_subscription(
-            PoseArray,
-            '/model/fws_robot/pose',
+            Odometry,
+            '/odom',
             self.robot_pose_callback,
             10
         )
@@ -155,8 +142,12 @@ class WheeledRobotEnv(gym.Env):
         self.kinetic_dim = 7
         self.lidar_start_indx = self.kinetic_dim + (self.n_waypoints+1)*2
 
-        self.robot_init_pos = np.array([0.0, 0.0, 0.07])
-        self.goal_pos:np.ndarray = np.array([-2.0, 4.0])
+        self.robot_init_pos = np.array(start_pos, dtype=float)
+        self.goal_pos:np.ndarray = np.array([goal_pos[0], goal_pos[1]])
+
+        # Nav2 Simple Navigator for finding waypoints
+        self.nav = BasicNavigator()
+        self.get_waypoints()
         self.current_num_step = 0
         self.prev_obs:dict[np.ndarray, np.ndarray] = None
         self.current_obs:dict[np.ndarray, np.ndarray] = self.get_obs(initialize=True)
@@ -176,51 +167,21 @@ class WheeledRobotEnv(gym.Env):
 
         executor_thread = threading.Thread(target=executor.spin, daemon=True)
         executor_thread.start()
-        rate = self.node.create_rate(2)
 
         wandb.init(
             project="learning robot navigation",
         )
 
-        # self.spawn_cylinder('cylinder1',self.goal_pos[0],self.goal_pos[1], 0)
 
     def take_action(self, action):
         self.vel_msg.linear.x = float(action[0])
         self.vel_msg.angular.z = float(action[1])
 
-        vel_steerring_offset = self.vel_msg.angular.z * self.wheel_steering_y_offset
-        sign = np.sign(self.vel_msg.linear.x)
-
-        self.vel[0] = sign*np.hypot(self.vel_msg.linear.x - self.vel_msg.angular.z*self.steering_track/2, self.vel_msg.angular.z*self.wheel_base/2) - vel_steerring_offset
-        self.vel[1] = sign*np.hypot(self.vel_msg.linear.x + self.vel_msg.angular.z*self.steering_track/2, self.vel_msg.angular.z*self.wheel_base/2) + vel_steerring_offset
-        self.vel[2] = sign*np.hypot(self.vel_msg.linear.x - self.vel_msg.angular.z*self.steering_track/2, self.vel_msg.angular.z*self.wheel_base/2) - vel_steerring_offset
-        self.vel[3] = sign*np.hypot(self.vel_msg.linear.x + self.vel_msg.angular.z*self.steering_track/2, self.vel_msg.angular.z*self.wheel_base/2) + vel_steerring_offset
-
-        a0 = 2*self.vel_msg.linear.x + self.vel_msg.angular.z*self.steering_track
-        a1 = 2*self.vel_msg.linear.x - self.vel_msg.angular.z*self.steering_track
-
-        if a0 != 0:
-            self.pos[0] = np.arctan(self.vel_msg.angular.z*self.wheel_base/(a0))
-        else:
-            self.pos[0] = 0
-            
-        if a1 != 0:
-            self.pos[1] = np.arctan(self.vel_msg.angular.z*self.wheel_base/(a1))
-        else:
-            self.pos[1] = 0
-
-        self.pos[2] = -self.pos[0]
-        self.pos[3] = -self.pos[1]
-            
-        pos_array = Float64MultiArray(data=self.pos) 
-        vel_array = Float64MultiArray(data=self.vel)
-
         try:
             while rclpy.ok():
                 self.control_world(pause=False)
                 
-                self.pub_pos.publish(pos_array)
-                self.pub_vel.publish(vel_array)
+                self.pub_twist.publish(self.vel_msg)
                 
                 time.sleep(self.delta_t/self.real_time_factor)
                 self.control_world(pause=True)
@@ -230,31 +191,84 @@ class WheeledRobotEnv(gym.Env):
         except KeyboardInterrupt:
             pass
 
-    def robot_pose_callback(self, msg:PoseArray):
+    def robot_pose_callback(self, msg:Odometry):
         # Update robot position
-        if msg.poses:
-            pose:Pose = msg.poses[-1]
+        if msg.pose.pose:
+            pose:Pose = msg.pose.pose
             self.robot_state['x'] = pose.position.x
             self.robot_state['y'] = pose.position.y
 
             # Convert quaternion (x, y, z, w) to yaw angle
             q = pose.orientation
-            siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
-            cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
-            self.robot_state['theta'] = np.arctan2(siny_cosp, cosy_cosp)
+            roll, pitch, yaw = euler_from_quaternion([
+                q.x,
+                q.y,
+                q.z,
+                q.w
+            ])
+            self.robot_state['theta'] = yaw
         else:
             self.node.get_logger().warn("Received empty pose array in robot_pose_callback")
             
-        self.robot_state['linear_vel_x'] = self.vel_msg.linear.x
-        self.robot_state['linear_vel_y'] = self.vel_msg.linear.y
+        self.robot_state['linear_vel_x'] = msg.twist.twist.linear.x
+        self.robot_state['linear_vel_y'] = msg.twist.twist.linear.y
 
-        self.robot_state['angular_vel'] = self.vel_msg.angular.z
-
+        self.robot_state['angular_vel'] = msg.twist.twist.angular.z
+        
     def lidar_callback(self, msg):
         # Convert the list of range measurements from the LaserScan message to a NumPy array
         raw_laser_data = np.array(msg.ranges)
         self.current_lidar_data = np.clip(a=raw_laser_data, a_min=self.lidar_min_range, a_max=self.lidar_max_range)
 
+    def get_waypoints(self):
+        self.nav.waitUntilNav2Active()
+
+        init_pose = PoseStamped()
+        init_pose.header.frame_id = 'map'
+        init_pose.pose.position.x = self.robot_init_pos[0]
+        init_pose.pose.position.y = self.robot_init_pos[1]
+        q = quaternion_from_euler(0,0,0)
+        init_pose.pose.orientation.x = q[0]
+        init_pose.pose.orientation.y = q[1]
+        init_pose.pose.orientation.z = q[2]
+        init_pose.pose.orientation.w = q[3]
+
+        goal_pose = PoseStamped()
+        goal_pose.header.frame_id = 'map'
+        goal_pose.pose.position.x = self.goal_pos[0]
+        goal_pose.pose.position.y = self.goal_pos[1]
+        q = quaternion_from_euler(0,0,0)
+        goal_pose.pose.orientation.x = q[0]
+        goal_pose.pose.orientation.y = q[1]
+        goal_pose.pose.orientation.z = q[2]
+        goal_pose.pose.orientation.w = q[3]
+        
+        self.nav.setInitialPose(init_pose)
+        self.nav._waitForInitialPose()
+        time.sleep(0.5)
+        path = self.nav.getPath(init_pose, goal_pose)
+        print('init pose: ',init_pose)
+        print('goal pose: ',goal_pose)
+
+        waypoints = []
+        for w in path.poses:
+            waypoints.append([w.pose.position.x, w.pose.position.y])
+        waypoints = np.array(waypoints)
+        print('last waypoint: ', waypoints[-1])
+        if len(waypoints) >= 10:
+            indices = np.linspace(0, len(waypoints) - 1, 10, dtype=int)
+            waypoints = np.array(waypoints)[indices]
+        else:
+            waypoints = np.array(waypoints)
+
+        self.waypoints_weight = np.zeros(shape=len(waypoints))
+        for i, w in enumerate(waypoints):
+            self.waypoints_weight[i] = 1/np.linalg.norm(w-self.goal_pos)
+            if i == len(waypoints)-1: # Last way point is goal (Nav2 config)
+                self.waypoints_weight[i] = 1
+
+        self.waypoints = waypoints
+        
     def control_world(self, pause:bool):
         request = ControlWorld.Request()
         request.world_control.pause = pause
@@ -262,10 +276,8 @@ class WheeledRobotEnv(gym.Env):
         future = self.control_world_client.call_async(request)
         rclpy.spin_until_future_complete(self.node, future)
         
-        if not future.result():
+        while not future.result():
             self.node.get_logger().error('WorldControl Service call failed')
-        else:
-            self.node.get_logger().info(f'Pause: {pause}')
 
     def get_obs(self, initialize:bool=False):
         # Use default high readings if lidar data isn't available or complete
@@ -297,14 +309,20 @@ class WheeledRobotEnv(gym.Env):
             d_goal
         ], dtype=np.float32)
 
-        # To-do: Setup way points
         if initialize:
-            self.prev_obs = np.concatenate([odometry, self.goal_pos, self.goal_pos, self.lidar_data])
+            self.waypoint_index = 0
+            self.nearest_waypoint_pos = self.waypoints[self.waypoint_index]
+            self.prev_obs = np.concatenate([odometry, self.lidar_data, self.goal_pos, self.nearest_waypoint_pos])
         
         else:
             self.prev_obs = self.current_obs.copy()
         
-        self.current_obs = np.concatenate([odometry, self.goal_pos, self.goal_pos, self.lidar_data])
+        d_waypoint = np.linalg.norm(np.array([self.robot_state['x'], self.robot_state['y']]) - self.nearest_waypoint_pos)
+        if d_waypoint <= 0.3:
+            self.waypoint_index = min(self.waypoint_index+1, len(self.waypoints)-1)
+            self.nearest_waypoint_pos = self.waypoints[self.waypoint_index]
+
+        self.current_obs = np.concatenate([odometry, self.lidar_data, self.goal_pos, self.nearest_waypoint_pos])
         return self.current_obs
        
     def step(self, action):
@@ -319,7 +337,7 @@ class WheeledRobotEnv(gym.Env):
             "State / Y-Coordinate": self.current_obs[1],
             "State / Theta": self.current_obs[2],
             "State / Linear Velocity X": self.current_obs[3],
-            "State / Linear Velocity Y": self.current_obs[4],
+            "State / Angular Velocity Z": self.current_obs[4],
             "State / Angular Velocity": self.current_obs[5],
             "State / Distance to Goal": self.current_obs[6],
         })
@@ -354,13 +372,13 @@ class WheeledRobotEnv(gym.Env):
 
         wandb.log({
             "Actions / Linear-X Velocity": float(action[0]),
-            "Actions / Linear-Y Velocity": float(action[1]),
-
+            "Actions / Angular-Z Velocity": float(action[1]),
             "Reward Sum": reward,
             "Reward Components / Collision ": reward_components.get("collision", 0),
             "Reward Components / Goal": reward_components.get("goal", 0),
             "Reward Components / Velocity": reward_components.get("velocity", 0),
-            "Reward Components / Angular": reward_components.get("angular", 0)
+            "Reward Components / Angular": reward_components.get("angular", 0),
+            "Reward Components / Waypoint": reward_components.get("waypoint", 0)
         })
 
         return observation, reward, terminated, truncated, info
@@ -383,14 +401,21 @@ class WheeledRobotEnv(gym.Env):
         
         # Reward goal 
         robot_pos = self.current_obs[:2] # x,y
-        goal_distance = np.linalg.norm(robot_pos - self.goal_pos)
+        distance_to_goal = np.linalg.norm(robot_pos - self.goal_pos)
+        distance_to_waypoints = np.zeros(shape=len(self.waypoints))
+        prev_distance_to_waypoints = np.zeros(shape=len(self.waypoints))
 
-        if goal_distance <= self.goal_threshold:
+        if distance_to_goal <= self.goal_threshold:
             reward_components['goal'] = self.reward_coeff['goal']['reach']
         else:
-            robot_prev_pos = self.prev_obs[:2]
-            prev_goal_distance = np.linalg.norm(robot_prev_pos - self.goal_pos)
-            reward_components['goal'] = self.reward_coeff['goal']['coeff']*(prev_goal_distance-goal_distance)
+            prev_distance_to_goal = np.linalg.norm(robot_prev_pos - self.goal_pos)
+            reward_components['goal'] = self.reward_coeff['goal']['coeff']*(prev_distance_to_goal - distance_to_goal)
+            
+        for i, w in enumerate(self.waypoints):
+            distance_to_waypoints[i] = np.linalg.norm(w - robot_pos)
+            prev_distance_to_waypoints[i] = np.linalg.norm(w - robot_prev_pos)
+        
+        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff']*(prev_distance_to_waypoints-distance_to_waypoints).dot(self.waypoints_weight)
 
         # To-do: Adjust
         # Reward velocity
@@ -409,9 +434,9 @@ class WheeledRobotEnv(gym.Env):
             "gz", "service", "-s", "/world/empty/set_pose",
             "--reqtype", "gz.msgs.Pose", "--reptype", "gz.msgs.Boolean",
             "--timeout", "2000",
-            "--req", 'name: "fws_robot", position: {x:0.0, y:0.0, z:0.07}'
+            "--req", 'name: "saye", position: {x:0.0, y:0.0, z:0.07}'
         ]
-        command[-1] = f'name: "fws_robot", position: {{x:{x}, y:{y}, z:{z}}}'
+        command[-1] = f'name: "saye", position: {{x:{x}, y:{y}, z:{z}}}'
 
         # Run the command with updated coordinates
         result = subprocess.run(command, capture_output=True, text=True)
@@ -422,7 +447,10 @@ class WheeledRobotEnv(gym.Env):
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
         self.set_robot_pose(self.robot_init_pos[0], self.robot_init_pos[1], self.robot_init_pos[2])
+        self.control_world(pause=False)
+        self.get_waypoints()
         self.control_world(pause=True)
+        self.nearest_waypoint_pos = self.waypoints[0]
 
         observation = self.get_obs(initialize=True)
         info = {}
@@ -435,57 +463,3 @@ class WheeledRobotEnv(gym.Env):
     def close(self):
         self.node.destroy_node()
         rclpy.shutdown()
-
-    def spawn_cylinder(self, name: str, x: float, y: float, z: float, radius: float = 0.2, height: float = 0.5):
-        """Spawns a cylinder in Gazebo at a given position."""
-        client = self.node.create_client(SpawnEntity, "/world/default/create")
-        
-        while not client.wait_for_service(timeout_sec=1.0):
-            self.node.get_logger().warn("Waiting for SpawnEntity service...")
-            client = self.node.create_client(SpawnEntity, "/world/default/create")
-
-
-        request = SpawnEntity.Request()
-        request.name = name
-        request.xml = f"""
-        <sdf version="1.7">
-            <model name="{name}">
-                <pose>{x} {y} {z} 0 0 0</pose>
-                <static>false</static>
-                <link name="link">
-                    <visual name="visual">
-                        <geometry>
-                            <cylinder>
-                                <radius>{radius}</radius>
-                                <length>{height}</length>
-                            </cylinder>
-                        </geometry>
-                        <material>
-                            <ambient>0.8 0.3 0.3 1.0</ambient>
-                        </material>
-                    </visual>
-                    <collision name="collision">
-                        <geometry>
-                            <cylinder>
-                                <radius>{radius}</radius>
-                                <length>{height}</length>
-                            </cylinder>
-                        </geometry>
-                    </collision>
-                </link>
-            </model>
-        </sdf>
-        """
-        request.robot_namespace = ""
-        request.initial_pose.position.x = x
-        request.initial_pose.position.y = y
-        request.initial_pose.position.z = z
-        request.initial_pose.orientation.w = 1.0
-
-        future = client.call_async(request)
-        rclpy.spin_until_future_complete(self.node, future)
-
-        if future.result() is not None:
-            self.node.get_logger().info(f"Successfully spawned {name}")
-        else:
-            self.node.get_logger().error(f"Failed to spawn {name}")

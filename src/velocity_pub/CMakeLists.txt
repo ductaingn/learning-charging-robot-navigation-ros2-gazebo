@@ -38,7 +38,9 @@ install(
     scripts/robot_control.py
     scripts/train_robot_navigation.py
     scripts/test_robot_navigation.py
+    scripts/publish_initialpose.py
     scripts/configs.yaml
+    scripts/map_info.yaml
     launch/train_robot_navigation.launch.py
     launch/test_robot_navigation.launch.py
     DESTINATION lib/${PROJECT_NAME}
