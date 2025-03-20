@@ -2,3 +2,8 @@ build
 install
 log
 test.ipynb
+wandb
+trained_weights/**/*.pkl
+.vscode
+test.py
+**.pyc

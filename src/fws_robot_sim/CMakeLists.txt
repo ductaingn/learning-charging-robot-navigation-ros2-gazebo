@@ -23,7 +23,11 @@ find_package(xacro REQUIRED)
 # find_package(<dependency> REQUIRED)
 
 install(
-  DIRECTORY launch worlds
+  DIRECTORY 
+    launch 
+    worlds
+    config
+    maps
   DESTINATION share/${PROJECT_NAME}
 )
 
