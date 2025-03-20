@@ -49,9 +49,9 @@ if __name__ == "__main__":
         verbose=1,
     )
 
-    model.load("trained_weights/SB3-2025-02-25-00-01-28/SAC_model_20000_steps")
-    model.set_parameters("trained_weights/SB3-2025-02-25-00-01-28/SAC_model_20000_steps")
-    model.load_replay_buffer("trained_weights/SB3-2025-02-25-00-01-28/SAC_model_replay_buffer_20000_steps")
+    # model.load("trained_weights/SB3-2025-02-25-00-01-28/SAC_model_20000_steps")
+    # model.set_parameters("trained_weights/SB3-2025-02-25-00-01-28/SAC_model_20000_steps")
+    # model.load_replay_buffer("trained_weights/SB3-2025-02-25-00-01-28/SAC_model_replay_buffer_20000_steps")
 
     ## Initialize callback and logger
     checkpoint_callback = CheckpointCallback(
