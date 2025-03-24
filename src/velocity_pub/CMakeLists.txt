@@ -35,7 +35,6 @@ install(
 
 install(
     PROGRAMS
-    scripts/robot_control.py
     scripts/train_robot_navigation.py
     scripts/test_robot_navigation.py
     scripts/publish_initialpose.py
