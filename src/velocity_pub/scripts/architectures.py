@@ -61,7 +61,7 @@ class FDM(nn.Module):
         return out
 
 class KineticModel(nn.Module):
-    def __init__(self, input_dim, output_dim, *args, **kwargs):
+    def __init__(self, input_dim, output_dim, n_waypoints, *args, **kwargs):
         super(KineticModel, self).__init__(*args, **kwargs)
 
         self.kinetic = nn.Sequential(
@@ -69,14 +69,12 @@ class KineticModel(nn.Module):
             nn.LeakyReLU(),
             nn.Linear(128, 256),
             nn.LeakyReLU(),
-            nn.Linear(256, 256),
-            nn.LeakyReLU(),
             nn.Linear(256,128),
             nn.LeakyReLU(),
             nn.Linear(128, output_dim//2)
         )
 
-        self.waypoint_encoder = nn.LSTM(input_size=2, hidden_size=128, num_layers=2, batch_first=True, proj_size=output_dim//4, dropout=0.1)
+        self.waypoint_encoder = nn.Linear(n_waypoints*2, output_dim//4)
 
         self.goal_encoder = nn.Linear(2, output_dim//4)
 
@@ -84,8 +82,7 @@ class KineticModel(nn.Module):
         n_envs = kinetic_state.shape[0]
         kinetic_state = self.kinetic(kinetic_state)
         
-        out, (hn, cn) = self.waypoint_encoder(waypoints)
-        waypoints = out[:,-1,:].unsqueeze(1)
+        waypoints = self.waypoint_encoder(waypoints)
         
         goal = self.goal_encoder(goal)
 
@@ -93,7 +90,7 @@ class KineticModel(nn.Module):
     
 
 class BackBone(nn.Module):
-    def __init__(self, history_dim, lidar_dim, kin_input_dim, kin_output_dim, hidden_dim, n_history_frame, *args, **kwargs):
+    def __init__(self, history_dim, lidar_dim, kin_input_dim, kin_output_dim, hidden_dim, n_history_frame, n_waypoints,*args, **kwargs):
         super(BackBone, self).__init__(*args, **kwargs)
         self.lidar_dim = lidar_dim
         self.kin_input_dim = kin_input_dim
@@ -102,7 +99,7 @@ class BackBone(nn.Module):
         self.history_dim = history_dim
 
         self.fdm = FDM(history_dim, lidar_dim, kin_output_dim)
-        self.kinetic_model = KineticModel(kin_input_dim, kin_output_dim)
+        self.kinetic_model = KineticModel(kin_input_dim, kin_output_dim, n_waypoints)
 
         self.mha = nn.MultiheadAttention(kin_output_dim, 4, dropout=0.1, batch_first=True)
 
@@ -149,7 +146,7 @@ class BackBone(nn.Module):
         lidar_observation = lidar_observation.reshape(-1, self.n_history_frame, self.lidar_dim)
         current_lidar = current_lidar.reshape(-1, 1, self.lidar_dim)
         n_envs = kinetic_state.shape[0]
-        waypoints = waypoints.reshape(n_envs, -1, 2)
+        waypoints = waypoints.reshape(n_envs, 1, -1)
         goals = goals.reshape(n_envs, 1, 2)
 
         env_rep = self.fdm.forward(lidar_observation, current_lidar)
@@ -167,10 +164,10 @@ class BackBone(nn.Module):
     
 class CustomFeatureExtractor(BaseFeaturesExtractor):
     """Custom feature extractor for SAC."""
-    def __init__(self, observation_space:Box, history_dim:int, observation_dim:int, kin_input_dim:int, kin_output_dim:int, hidden_dim:int, n_history_frame:int, features_dim: int = 256):
+    def __init__(self, observation_space:Box, history_dim:int, observation_dim:int, kin_input_dim:int, kin_output_dim:int, hidden_dim:int, n_history_frame:int, n_waypoints:int, features_dim: int = 256):
         super().__init__(observation_space, features_dim)
 
-        self.feature_extractor_net = BackBone(history_dim, observation_dim, kin_input_dim, kin_output_dim, hidden_dim, n_history_frame)
+        self.feature_extractor_net = BackBone(history_dim, observation_dim, kin_input_dim, kin_output_dim, hidden_dim, n_history_frame, n_waypoints)
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         return self.feature_extractor_net(observations)
