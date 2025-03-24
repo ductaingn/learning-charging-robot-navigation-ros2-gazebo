@@ -4,7 +4,7 @@ berlin_2:
   goal: [-0.5, 9.5, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
 boston_1:
   start: [-8.0, 8.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
-  goal: [-0.5, -x9.5, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
+  goal: [-0.5, -9.5, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
 depot_with_capsule_goal:
   start: [0.0, 0.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
   goal: [15.0, -2.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw

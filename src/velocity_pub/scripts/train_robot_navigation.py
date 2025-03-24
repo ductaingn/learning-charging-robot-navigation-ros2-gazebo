@@ -38,7 +38,8 @@ if __name__ == "__main__":
             kin_input_dim=env.kinetic_dim,
             kin_output_dim=64,
             hidden_dim=256,
-            n_history_frame=env.n_history_frame
+            n_history_frame=env.n_history_frame,
+            n_waypoints=env.n_waypoints,
         )
     )
     model = sb3.SAC(
@@ -47,6 +48,7 @@ if __name__ == "__main__":
         policy_kwargs=policy_kwargs, 
         buffer_size=100000,
         verbose=1,
+        batch_size=1024
     )
 
     # model.load("trained_weights/SB3-2025-02-25-00-01-28/SAC_model_20000_steps")

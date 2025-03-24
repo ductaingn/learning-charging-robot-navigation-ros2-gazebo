@@ -36,11 +36,6 @@ def generate_launch_description():
     for _ in range(5):
         src_path = os.path.dirname(src_path)
     src_path = os.path.join(src_path, 'src')
-    
-    with open(os.path.join(velocity_pub_path, 'scripts', 'map_info.yaml')) as file:
-        map_info = yaml.safe_load(file)
-    map_name = str(map_info['using_map_name'])
-    start_x, start_y, start_z, start_roll, start_pitch, start_yaw = list(map_info[map_name]['start'])
 
     gazebo_resource_path = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH',

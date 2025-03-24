@@ -16,9 +16,13 @@ from rclpy.qos import qos_profile_system_default
 import time
 from tf_transformations import euler_from_quaternion, quaternion_from_euler
 from nav2_simple_commander.robot_navigator import BasicNavigator
+import warnings
+from scipy.interpolate import RBFInterpolator
+import pickle
+import matplotlib.pyplot as plt
 
 class WheeledRobotEnv(gym.Env):
-    def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, n_history_frame:int, collision_threshold:float, n_waypoints:int, goal_threshold:float, robot_max_lin_vel:float, reward_coeff:dict, real_time_factor:float, delta_t:float, start_pos:list[float, float, float], goal_pos:list[float, float, float]):
+    def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, n_history_frame:int, collision_threshold:float, n_waypoints:int, goal_threshold:float, robot_max_lin_vel:float, robot_max_ang_vel:float, reward_coeff:dict, real_time_factor:float, delta_t:float, start_pos:list[float, float, float], goal_pos:list[float, float, float]):
         """
         Initialize the WheeledRobotEnv environment.
 
@@ -86,6 +90,7 @@ class WheeledRobotEnv(gym.Env):
         self.goal_threshold = goal_threshold
         self.reward_coeff = reward_coeff
         self.robot_max_lin_vel = robot_max_lin_vel
+        self.robot_max_ang_vel = robot_max_ang_vel
         self.real_time_factor = real_time_factor
         self.delta_t = delta_t
 
@@ -107,9 +112,9 @@ class WheeledRobotEnv(gym.Env):
         )
 
         # ROS2 topic for odometry data
-        self.robot_pose_sub = self.node.create_subscription(
+        self.robot_odom_sub = self.node.create_subscription(
             Odometry,
-            '/odom',
+            '/saye/odometry_with_covariance',
             self.robot_pose_callback,
             10
         )
@@ -120,34 +125,40 @@ class WheeledRobotEnv(gym.Env):
             self.node.get_logger().info('Waiting for WorldControl service...')
 
         # Define RL spaces
-        self.action_space = spaces.Box(low=np.array([-self.robot_max_lin_vel, -np.pi]), high=np.array([robot_max_lin_vel, np.pi]), dtype=np.float32) # x linear velocity, angular velocity
+        self.action_space = spaces.Box(low=np.array([-self.robot_max_lin_vel, -self.robot_max_ang_vel]), high=np.array([robot_max_lin_vel, self.robot_max_ang_vel]), dtype=np.float32) # x linear velocity, angular velocity
 
         # Observation space: 
         ## x, y, theta, x-linear velocity, y-linear velocity, angular velocity, distance to goal
-        ## goal positions, waypoints positions
         ## current lidar data, history lidar data, goal position
+        ## goal positions, waypoints positions
 
         self.observation_space = gym.spaces.Box(
             low=np.array(
-                [-self.environment_shape[0]/2, -self.environment_shape[1]/2, -np.pi/2, -self.robot_max_lin_vel, -self.robot_max_lin_vel, 0, 0] +
-                [-self.environment_shape[0]/2, -self.environment_shape[1]/2]*(1 + self.n_waypoints) +
-                [self.lidar_min_range]*self.lidar_dim*(1+self.n_history_frame)
+                [-self.environment_shape[0]/2, -self.environment_shape[1]/2, -np.pi/2, -self.robot_max_lin_vel, -self.robot_max_lin_vel, -self.robot_max_ang_vel, 0] +
+                [self.lidar_min_range]*self.lidar_dim*(1+self.n_history_frame) +
+                [-self.environment_shape[0]/2, -self.environment_shape[1]/2]*(1 + self.n_waypoints)
             ),
             high=np.array(
-                [self.environment_shape[0]/2, self.environment_shape[1]/2, np.pi/2, robot_max_lin_vel, robot_max_lin_vel, np.pi, np.sqrt(self.environment_shape[0]**2 + self.environment_shape[1]**2)] +
-                [self.environment_shape[0]/2, self.environment_shape[1]/2]*(1 + self.n_waypoints) +
-                [self.lidar_max_range]*self.lidar_dim*(1+self.n_history_frame)
+                [self.environment_shape[0]/2, self.environment_shape[1]/2, np.pi/2, robot_max_lin_vel, robot_max_lin_vel, self.robot_max_ang_vel, np.sqrt(self.environment_shape[0]**2 + self.environment_shape[1]**2)] +
+                [self.lidar_max_range]*self.lidar_dim*(1+self.n_history_frame) +
+                [self.environment_shape[0]/2, self.environment_shape[1]/2]*(1 + self.n_waypoints)
             ),
         )
         self.kinetic_dim = 7
         self.lidar_start_indx = self.kinetic_dim + (self.n_waypoints+1)*2
 
         self.robot_init_pos = np.array(start_pos, dtype=float)
-        self.goal_pos:np.ndarray = np.array([goal_pos[0], goal_pos[1]])
+        self.goal_pos:np.ndarray = np.array([goal_pos[0], goal_pos[1]], dtype=float)
 
         # Nav2 Simple Navigator for finding waypoints
         self.nav = BasicNavigator()
-        self.get_waypoints()
+        if not hasattr(self, 'waypoints'):
+            self.waypoints = self.get_waypoints()
+        
+        # Create an Arficial Potential Field to guild the robot to move along waypoints
+        if not hasattr(self, 'apf'):
+            self.apf = self.get_apf()
+        
         self.current_num_step = 0
         self.prev_obs:dict[np.ndarray, np.ndarray] = None
         self.current_obs:dict[np.ndarray, np.ndarray] = self.get_obs(initialize=True)
@@ -221,6 +232,7 @@ class WheeledRobotEnv(gym.Env):
         self.current_lidar_data = np.clip(a=raw_laser_data, a_min=self.lidar_min_range, a_max=self.lidar_max_range)
 
     def get_waypoints(self):
+        self.node.get_logger().info('Waiting for Nav2 to activate...')
         self.nav.waitUntilNav2Active()
 
         init_pose = PoseStamped()
@@ -247,27 +259,85 @@ class WheeledRobotEnv(gym.Env):
         self.nav._waitForInitialPose()
         time.sleep(0.5)
         path = self.nav.getPath(init_pose, goal_pose)
-        print('init pose: ',init_pose)
-        print('goal pose: ',goal_pose)
 
         waypoints = []
         for w in path.poses:
             waypoints.append([w.pose.position.x, w.pose.position.y])
         waypoints = np.array(waypoints)
-        print('last waypoint: ', waypoints[-1])
-        if len(waypoints) >= 10:
-            indices = np.linspace(0, len(waypoints) - 1, 10, dtype=int)
+        self.raw_waypoints = waypoints
+
+        if len(waypoints) >= self.n_waypoints:
+            indices = np.linspace(0, len(waypoints) - 1, self.n_waypoints, dtype=int)
             waypoints = np.array(waypoints)[indices]
         else:
+            self.node.get_logger().warn("Waypoints shape is not stable. Expected at least {} waypoints, but got {}.".format(self.n_waypoints, len(waypoints)))
+            warnings.warn("Waypoints shape is not stable. Expected at least {} waypoints, but got {}.".format(self.n_waypoints, len(waypoints)), UserWarning)
             waypoints = np.array(waypoints)
 
-        self.waypoints_weight = np.zeros(shape=len(waypoints))
-        for i, w in enumerate(waypoints):
-            self.waypoints_weight[i] = 1/np.linalg.norm(w-self.goal_pos)
-            if i == len(waypoints)-1: # Last way point is goal (Nav2 config)
-                self.waypoints_weight[i] = 1
+        return waypoints
+    
+    def calculate_control_points(self, waypoints, goal_point):
+        coordinate = []
+        max_z = 0
+        for wp in waypoints:
+            # wp_scaled = [3 * (coord - min_val) / (max_val - min_val) for coord in wp]
+            wp_z = np.linalg.norm(np.array(wp)-np.array(goal_point))
+            max_z = max(max_z, wp_z)
+            coordinate.append([wp[0], wp[1], wp_z])
+            
+        num_seg = 100 # Segment walls (map boundaries) into num_seg segments
+        for i in range(num_seg):
+            for j in range(num_seg):
+                if i == 1 and j == 1:  # skip the center point
+                    continue
+                x = i * (self.environment_shape[0]/(num_seg-1))
+                y = j * (self.environment_shape[1]/(num_seg-1))
+                if x==0 or x==self.environment_shape[0] or y==0 or y==self.environment_shape[1]:
+                    coordinate.append([
+                        i * (self.environment_shape[0]/(num_seg-1)) - self.environment_shape[0]/2, 
+                        j * (self.environment_shape[1]/(num_seg-1)) - self.environment_shape[1]/2, 
+                        max_z
+                    ])
 
-        self.waypoints = waypoints
+        coordinate = np.array(coordinate)
+
+        return coordinate
+    
+    def get_apf(self):
+        control_points = self.calculate_control_points(self.waypoints, self.goal_pos)
+
+        xy = control_points[:, :2]  # (x, y) coordinates
+        z = control_points[:, 2]    # z values
+
+        # Fit RBF interpolator
+        rbf = RBFInterpolator(xy, z, kernel='inverse_multiquadric', epsilon=1)
+
+        # Generate a grid to evaluate the surface
+        # x_vals = np.linspace(0, 20, 100)
+        # y_vals = np.linspace(0, 20, 100)
+        # X, Y = np.meshgrid(x_vals, y_vals)
+        # Z = rbf(np.column_stack([X.ravel(), Y.ravel()])).reshape(X.shape)
+
+        # # Plot the RBF-interpolated surface
+        # fig = plt.figure(figsize=(10, 7))
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.plot_surface(X, Y, Z, cmap='viridis', alpha=0.8)
+
+        # # Plot the control points
+        # ax.scatter(control_points[:, 0], control_points[:, 1], control_points[:, 2], color='red', marker='o', label="Control Points")
+
+        # ax.set_xlabel("X")
+        # ax.set_ylabel("Y")
+        # ax.set_zlabel("Z")
+        # ax.set_title("Artificial Potential Field")
+        # ax.legend()
+        # fig.savefig('apf.png')
+        # plt.show()
+        with open("control_points.pkl", "wb") as f:
+            pickle.dump(control_points, f)
+        print('saved waypoints')
+
+        return rbf
         
     def control_world(self, pause:bool):
         request = ControlWorld.Request()
@@ -310,19 +380,12 @@ class WheeledRobotEnv(gym.Env):
         ], dtype=np.float32)
 
         if initialize:
-            self.waypoint_index = 0
-            self.nearest_waypoint_pos = self.waypoints[self.waypoint_index]
-            self.prev_obs = np.concatenate([odometry, self.lidar_data, self.goal_pos, self.nearest_waypoint_pos])
+            self.prev_obs = np.concatenate([odometry, self.lidar_data, self.goal_pos.flatten(), self.waypoints.flatten()])
         
         else:
             self.prev_obs = self.current_obs.copy()
-        
-        d_waypoint = np.linalg.norm(np.array([self.robot_state['x'], self.robot_state['y']]) - self.nearest_waypoint_pos)
-        if d_waypoint <= 0.3:
-            self.waypoint_index = min(self.waypoint_index+1, len(self.waypoints)-1)
-            self.nearest_waypoint_pos = self.waypoints[self.waypoint_index]
 
-        self.current_obs = np.concatenate([odometry, self.lidar_data, self.goal_pos, self.nearest_waypoint_pos])
+        self.current_obs = np.concatenate([odometry, self.lidar_data, self.goal_pos.flatten(), self.waypoints.flatten()])
         return self.current_obs
        
     def step(self, action):
@@ -337,7 +400,7 @@ class WheeledRobotEnv(gym.Env):
             "State / Y-Coordinate": self.current_obs[1],
             "State / Theta": self.current_obs[2],
             "State / Linear Velocity X": self.current_obs[3],
-            "State / Angular Velocity Z": self.current_obs[4],
+            "State / Linear Velocity Y": self.current_obs[4],
             "State / Angular Velocity": self.current_obs[5],
             "State / Distance to Goal": self.current_obs[6],
         })
@@ -401,9 +464,8 @@ class WheeledRobotEnv(gym.Env):
         
         # Reward goal 
         robot_pos = self.current_obs[:2] # x,y
+        robot_prev_pos = self.prev_obs[:2]
         distance_to_goal = np.linalg.norm(robot_pos - self.goal_pos)
-        distance_to_waypoints = np.zeros(shape=len(self.waypoints))
-        prev_distance_to_waypoints = np.zeros(shape=len(self.waypoints))
 
         if distance_to_goal <= self.goal_threshold:
             reward_components['goal'] = self.reward_coeff['goal']['reach']
@@ -411,11 +473,9 @@ class WheeledRobotEnv(gym.Env):
             prev_distance_to_goal = np.linalg.norm(robot_prev_pos - self.goal_pos)
             reward_components['goal'] = self.reward_coeff['goal']['coeff']*(prev_distance_to_goal - distance_to_goal)
             
-        for i, w in enumerate(self.waypoints):
-            distance_to_waypoints[i] = np.linalg.norm(w - robot_pos)
-            prev_distance_to_waypoints[i] = np.linalg.norm(w - robot_prev_pos)
-        
-        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff']*(prev_distance_to_waypoints-distance_to_waypoints).dot(self.waypoints_weight)
+        prev_waypoints_score = self.apf([robot_prev_pos])
+        waypoints_score = self.apf([robot_pos])
+        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * ((prev_waypoints_score - waypoints_score)).item()
 
         # To-do: Adjust
         # Reward velocity
@@ -447,10 +507,9 @@ class WheeledRobotEnv(gym.Env):
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
         self.set_robot_pose(self.robot_init_pos[0], self.robot_init_pos[1], self.robot_init_pos[2])
-        self.control_world(pause=False)
-        self.get_waypoints()
+        # self.control_world(pause=False)
+        # self.get_waypoints()
         self.control_world(pause=True)
-        self.nearest_waypoint_pos = self.waypoints[0]
 
         observation = self.get_obs(initialize=True)
         info = {}
