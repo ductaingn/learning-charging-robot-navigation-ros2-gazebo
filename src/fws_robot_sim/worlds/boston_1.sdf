@@ -1,8 +1,8 @@
 <sdf version='1.10'>
   <world name='empty'>
     <physics name='1ms' type='ignored'>
-      <max_step_size>0.01</max_step_size>
-      <real_time_factor>5</real_time_factor>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>2</real_time_factor>
       <real_time_update_rate>0</real_time_update_rate>
       <type>bullet</type>
     </physics>
@@ -2205,7 +2205,7 @@
           <mass>1</mass>
           <pose>0 0 0 0 0 0</pose>
         </inertial>
-        <collision name='capsule_collision'>
+        <!-- <collision name='capsule_collision'>
           <geometry>
             <capsule>
               <radius>0.20000000000000001</radius>
@@ -2219,7 +2219,7 @@
             <bounce/>
             <contact/>
           </surface>
-        </collision>
+        </collision> -->
         <visual name='capsule_visual'>
           <geometry>
             <capsule>

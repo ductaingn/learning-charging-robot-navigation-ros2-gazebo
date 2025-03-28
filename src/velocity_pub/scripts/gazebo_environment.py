@@ -313,10 +313,15 @@ class WheeledRobotEnv(gym.Env):
         rbf = RBFInterpolator(xy, z, kernel='inverse_multiquadric', epsilon=1)
 
         # Generate a grid to evaluate the surface
-        # x_vals = np.linspace(0, 20, 100)
-        # y_vals = np.linspace(0, 20, 100)
-        # X, Y = np.meshgrid(x_vals, y_vals)
-        # Z = rbf(np.column_stack([X.ravel(), Y.ravel()])).reshape(X.shape)
+        x_vals = np.linspace(-10, 10, 100)
+        y_vals = np.linspace(-10, 10, 100)
+        X, Y = np.meshgrid(x_vals, y_vals)
+        Z = rbf(np.column_stack([X.ravel(), Y.ravel()])).reshape(X.shape)
+
+        self.max_apf = Z.max() # For normalizing reward way points
+        self.min_apf = Z.min()
+        self.max_apf_diff = abs(self.min_apf) + self.max_apf
+        self.min_apf_diff = -self.max_apf_diff
 
         # # Plot the RBF-interpolated surface
         # fig = plt.figure(figsize=(10, 7))
@@ -455,35 +460,38 @@ class WheeledRobotEnv(gym.Env):
     def get_rewards(self, collise):
         reward = 0.0
         reward_components = {}
+        
+        # Reward goal 
+        robot_pos = self.current_obs[:2] # x,y
+        robot_theta = self.current_obs[2]
+        robot_xy_linear_vel = self.current_obs[3:5]
+        robot_ang_vel = self.current_obs[5]
+        robot_d_goal = self.current_obs[6]
 
+        robot_prev_pos = self.prev_obs[:2]
+        robot_prev_d_goal = self.prev_obs[6]
+
+        if robot_d_goal <= self.goal_threshold:
+            reward_components['goal'] = self.reward_coeff['goal']['reach']
+        else:
+            reward_components['goal'] = self.reward_coeff['goal']['coeff']*(robot_prev_d_goal - robot_d_goal)/(self.robot_max_lin_vel*self.delta_t)
+        
         # Reward collision
         if collise:
             reward_components['collision'] = self.reward_coeff['collision']['collise']
         else:
             reward_components['collision'] = self.reward_coeff['collision']['coeff']*0
-        
-        # Reward goal 
-        robot_pos = self.current_obs[:2] # x,y
-        robot_prev_pos = self.prev_obs[:2]
-        distance_to_goal = np.linalg.norm(robot_pos - self.goal_pos)
-
-        if distance_to_goal <= self.goal_threshold:
-            reward_components['goal'] = self.reward_coeff['goal']['reach']
-        else:
-            prev_distance_to_goal = np.linalg.norm(robot_prev_pos - self.goal_pos)
-            reward_components['goal'] = self.reward_coeff['goal']['coeff']*(prev_distance_to_goal - distance_to_goal)
             
         prev_waypoints_score = self.apf([robot_prev_pos])
         waypoints_score = self.apf([robot_pos])
-        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * ((prev_waypoints_score - waypoints_score)).item()
+        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * np.log1p(((prev_waypoints_score - waypoints_score)).item() + abs(self.min_apf_diff))/np.log1p(abs(self.min_apf_diff) + self.max_apf_diff)
 
         # To-do: Adjust
         # Reward velocity
-        linear_vel = np.sqrt(self.current_obs[3]**2 + self.current_obs[4]**2) # linear velocity
-        if linear_vel < 1:
-            reward_components['velocity'] = -0.1
+        linear_vel = np.linalg.norm(robot_xy_linear_vel) # linear velocity
+        reward_components['velocity'] = linear_vel/(self.robot_max_lin_vel*np.sqrt(2))
 
-        reward_components['angular'] = -np.abs(self.current_obs[5])
+        reward_components['angular'] = -np.abs(robot_ang_vel)/self.robot_max_ang_vel
 
         reward = sum(reward_components.values())
 

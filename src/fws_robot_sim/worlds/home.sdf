@@ -1966,7 +1966,7 @@
           <mass>1</mass>
           <pose>0 0 0 0 0 0</pose>
         </inertial>
-        <collision name='capsule_collision'>
+        <!-- <collision name='capsule_collision'>
           <geometry>
             <capsule>
               <radius>0.20000000000000001</radius>
@@ -1980,7 +1980,7 @@
             <bounce/>
             <contact/>
           </surface>
-        </collision>
+        </collision> -->
         <visual name='capsule_visual'>
           <geometry>
             <capsule>
