@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     ## Initialize callback and logger
     checkpoint_callback = CheckpointCallback(
-        save_freq=5000,
+        save_freq=2500,
         save_path=f"trained_weights/{time_now}",
         name_prefix="SAC_model",
         save_replay_buffer=True,

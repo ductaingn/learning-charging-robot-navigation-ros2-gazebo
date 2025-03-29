@@ -160,8 +160,8 @@ class WheeledRobotEnv(gym.Env):
             self.apf = self.get_apf()
         
         self.current_num_step = 0
-        self.prev_obs:dict[np.ndarray, np.ndarray] = None
-        self.current_obs:dict[np.ndarray, np.ndarray] = self.get_obs(initialize=True)
+        self.prev_obs:np.ndarray = None
+        self.current_obs:np.ndarray = self.get_obs(initialize=True)
 
         # Variable to store robot's position and kinematic information from ROS2
         self.robot_state = {
@@ -463,7 +463,6 @@ class WheeledRobotEnv(gym.Env):
         
         # Reward goal 
         robot_pos = self.current_obs[:2] # x,y
-        robot_theta = self.current_obs[2]
         robot_xy_linear_vel = self.current_obs[3:5]
         robot_ang_vel = self.current_obs[5]
         robot_d_goal = self.current_obs[6]
@@ -474,7 +473,7 @@ class WheeledRobotEnv(gym.Env):
         if robot_d_goal <= self.goal_threshold:
             reward_components['goal'] = self.reward_coeff['goal']['reach']
         else:
-            reward_components['goal'] = self.reward_coeff['goal']['coeff']*(robot_prev_d_goal - robot_d_goal)/(self.robot_max_lin_vel*self.delta_t)
+            reward_components['goal'] = self.reward_coeff['goal']['coeff']*np.tanh(robot_prev_d_goal - robot_d_goal)
         
         # Reward collision
         if collise:
@@ -486,14 +485,10 @@ class WheeledRobotEnv(gym.Env):
         waypoints_score = self.apf([robot_pos])
 
         apf_diff = prev_waypoints_score - waypoints_score
-        reward_waypoint_raw = np.log1p(apf_diff - self.min_apf_diff)
-        reward_waypoint_norm = 2*reward_waypoint_raw/np.log1p(self.max_apf_diff - self.min_apf_diff) - 1
-        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * reward_waypoint_norm
+        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * np.tanh(apf_diff)
 
-        # To-do: Adjust
         # Reward velocity
-        # linear_vel = np.linalg.norm(robot_xy_linear_vel) # linear velocity
-        reward_components['velocity'] = robot_xy_linear_vel[0]/(self.robot_max_lin_vel)
+        reward_components['velocity'] = np.linalg.norm(robot_xy_linear_vel)/(self.robot_max_lin_vel*np.sqrt(2))
 
         reward_components['angular'] = -np.abs(robot_ang_vel)/self.robot_max_ang_vel
 
