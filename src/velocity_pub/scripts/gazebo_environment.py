@@ -320,7 +320,7 @@ class WheeledRobotEnv(gym.Env):
 
         self.max_apf = Z.max() # For normalizing reward way points
         self.min_apf = Z.min()
-        self.max_apf_diff = abs(self.min_apf) + self.max_apf
+        self.max_apf_diff = self.max_apf - self.min_apf
         self.min_apf_diff = -self.max_apf_diff
 
         # # Plot the RBF-interpolated surface
@@ -380,7 +380,7 @@ class WheeledRobotEnv(gym.Env):
             self.robot_state['theta'],
             self.robot_state['linear_vel_x'],
             self.robot_state['linear_vel_y'],
-            self.robot_state['angular_vel'],
+            np.clip(self.robot_state['angular_vel'], -self.robot_max_ang_vel, self.robot_max_ang_vel),
             d_goal
         ], dtype=np.float32)
 
@@ -484,12 +484,16 @@ class WheeledRobotEnv(gym.Env):
             
         prev_waypoints_score = self.apf([robot_prev_pos])
         waypoints_score = self.apf([robot_pos])
-        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * np.log1p(((prev_waypoints_score - waypoints_score)).item() + abs(self.min_apf_diff))/np.log1p(abs(self.min_apf_diff) + self.max_apf_diff)
+
+        apf_diff = prev_waypoints_score - waypoints_score
+        reward_waypoint_raw = np.log1p(apf_diff - self.min_apf_diff)
+        reward_waypoint_norm = 2*reward_waypoint_raw/np.log1p(self.max_apf_diff - self.min_apf_diff) - 1
+        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * reward_waypoint_norm
 
         # To-do: Adjust
         # Reward velocity
-        linear_vel = np.linalg.norm(robot_xy_linear_vel) # linear velocity
-        reward_components['velocity'] = linear_vel/(self.robot_max_lin_vel*np.sqrt(2))
+        # linear_vel = np.linalg.norm(robot_xy_linear_vel) # linear velocity
+        reward_components['velocity'] = robot_xy_linear_vel[0]/(self.robot_max_lin_vel)
 
         reward_components['angular'] = -np.abs(robot_ang_vel)/self.robot_max_ang_vel
 
