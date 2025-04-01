@@ -23,12 +23,7 @@ class FDM(nn.Module):
         self.history_embedding = nn.Linear(history_dim, 128)
         self.current_embedding = nn.Linear(obs_dim, 128)
 
-        self.lstm = nn.LSTM(input_size=128, hidden_size=128, num_layers=2, batch_first=True)
-        
-        self.fc1 = nn.Linear(128, 256)
-        self.fc2 = nn.Linear(256, 128)
-
-        self.mha = nn.MultiheadAttention(128, 4, dropout=0.1, batch_first=True)
+        self.tfm = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model=128, nhead=4, dropout=0.1, dim_feedforward=512,batch_first=True), num_layers=1)
 
         self.layer_norm = nn.LayerNorm(128)
 
@@ -38,23 +33,20 @@ class FDM(nn.Module):
     def forward(self, history_observation, current_observation):
         '''
         history_observation: shape = (batch_size, n_history_frame, lidar_dim)
-        current_observation: shape = (batch_size, lidar_dim)
+        current_observation: shape = (batch_size, 1, lidar_dim)
 
         out: shape = (batch_size, output_dim)
         '''
         history_observation = self.history_embedding(history_observation)
         
-        hs, self.hidden_his_state = self.lstm(history_observation)
-        hs = F.leaky_relu(hs)
+        # hs, self.hidden_his_state = self.lstm(history_observation)
+        hs = F.leaky_relu(history_observation)
             
         co = F.leaky_relu(self.current_embedding(current_observation))
 
-        co = F.leaky_relu(self.fc1(co))
-        co = F.leaky_relu(self.fc2(co))
-
         concat = torch.cat([hs, co], dim=1)
         
-        out, _ = self.mha(concat, concat, concat)
+        out = self.tfm(concat)
 
         out = self.encode(out)
 

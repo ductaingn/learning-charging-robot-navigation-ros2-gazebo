@@ -1951,8 +1951,8 @@
       <static>false</static>
       <self_collide>false</self_collide>
     </model>
-    <model name='capsule'>
-      <pose>-2.0 4.0 0.5 0 0 0</pose>
+    <!-- <model name='capsule'>
+      <pose>-6.0 3.0 0.5 0 0 0</pose>
       <link name='capsule_link'>
         <inertial>
           <inertia>
@@ -1965,8 +1965,8 @@
           </inertia>
           <mass>1</mass>
           <pose>0 0 0 0 0 0</pose>
-        </inertial>
-        <collision name='capsule_collision'>
+        </inertial> -->
+        <!-- <collision name='capsule_collision'>
           <geometry>
             <capsule>
               <radius>0.20000000000000001</radius>
@@ -1980,8 +1980,8 @@
             <bounce/>
             <contact/>
           </surface>
-        </collision>
-        <visual name='capsule_visual'>
+        </collision> -->
+        <!-- <visual name='capsule_visual'>
           <geometry>
             <capsule>
               <radius>0.20000000000000001</radius>
@@ -1997,9 +1997,9 @@
         <pose>0 0 0 0 0 0</pose>
         <enable_wind>false</enable_wind>
       </link>
-      <static>false</static>
+      <static>true</static>
       <self_collide>false</self_collide>
-    </model>
+    </model> -->
     <light name='sun' type='directional'>
       <pose>0 0 10 0 0 0</pose>
       <cast_shadows>true</cast_shadows>

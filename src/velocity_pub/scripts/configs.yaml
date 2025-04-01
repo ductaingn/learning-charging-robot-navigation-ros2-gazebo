@@ -7,17 +7,19 @@ n_history_frame: 8
 n_waypoints: 24
 collision_threshold: 0.21 #[m]
 goal_threshold: 0.5 #[m]
-robot_max_lin_vel: 1.0 #[m/s]
-robot_max_ang_vel: 1.0
+robot_max_lin_vel: 0.75 #[m/s]
+robot_max_ang_vel: 0.5 #[rad/s]
 real_time_factor: 2.5 # not defined in this file
 delta_t: 0.2
 reward_coeff:
   goal:
-    coeff: 1
-    reach: 100
+    coeff: 4
+    reach: 25
   collision:
     coeff: 1
     collise: -100
   waypoint:
-    coeff: 1
+    coeff: 4
+  velocity:
+    coeff: 0.6
   

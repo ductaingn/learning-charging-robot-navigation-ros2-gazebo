@@ -22,7 +22,7 @@ import pickle
 import matplotlib.pyplot as plt
 
 class WheeledRobotEnv(gym.Env):
-    def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, n_history_frame:int, collision_threshold:float, n_waypoints:int, goal_threshold:float, robot_max_lin_vel:float, robot_max_ang_vel:float, reward_coeff:dict, real_time_factor:float, delta_t:float, start_pos:list[float, float, float], goal_pos:list[float, float, float]):
+    def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, n_history_frame:int, collision_threshold:float, n_waypoints:int, goal_threshold:float, robot_max_lin_vel:float, robot_max_ang_vel:float, reward_coeff:dict, real_time_factor:float, delta_t:float, start_pose:list[float, float, float], goal_pos:list[float, float, float]):
         """
         Initialize the WheeledRobotEnv environment.
 
@@ -147,7 +147,7 @@ class WheeledRobotEnv(gym.Env):
         self.kinetic_dim = 7
         self.lidar_start_indx = self.kinetic_dim + (self.n_waypoints+1)*2
 
-        self.robot_init_pos = np.array(start_pos, dtype=float)
+        self.robot_init_pose = np.array(start_pose, dtype=float)
         self.goal_pos:np.ndarray = np.array([goal_pos[0], goal_pos[1]], dtype=float)
 
         # Nav2 Simple Navigator for finding waypoints
@@ -160,13 +160,13 @@ class WheeledRobotEnv(gym.Env):
             self.apf = self.get_apf()
         
         self.current_num_step = 0
-        self.prev_obs:dict[np.ndarray, np.ndarray] = None
-        self.current_obs:dict[np.ndarray, np.ndarray] = self.get_obs(initialize=True)
+        self.prev_obs:np.ndarray = None
+        self.current_obs:np.ndarray = self.get_obs(initialize=True)
 
         # Variable to store robot's position and kinematic information from ROS2
         self.robot_state = {
-            'x': self.robot_init_pos[0],           # X position
-            'y': self.robot_init_pos[1],           # Y position
+            'x': self.robot_init_pose[0],           # X position
+            'y': self.robot_init_pose[1],           # Y position
             'theta': 0.0,       # Orientation angle (radians)
             'linear_vel_x': 0.0,  # Linear velocity
             'linear_vel_y': 0.0,  # Linear velocity
@@ -237,9 +237,9 @@ class WheeledRobotEnv(gym.Env):
 
         init_pose = PoseStamped()
         init_pose.header.frame_id = 'map'
-        init_pose.pose.position.x = self.robot_init_pos[0]
-        init_pose.pose.position.y = self.robot_init_pos[1]
-        q = quaternion_from_euler(0,0,0)
+        init_pose.pose.position.x = self.robot_init_pose[0]
+        init_pose.pose.position.y = self.robot_init_pose[1]
+        q = quaternion_from_euler(0,0,self.robot_init_pose[-1])
         init_pose.pose.orientation.x = q[0]
         init_pose.pose.orientation.y = q[1]
         init_pose.pose.orientation.z = q[2]
@@ -313,10 +313,15 @@ class WheeledRobotEnv(gym.Env):
         rbf = RBFInterpolator(xy, z, kernel='inverse_multiquadric', epsilon=1)
 
         # Generate a grid to evaluate the surface
-        # x_vals = np.linspace(0, 20, 100)
-        # y_vals = np.linspace(0, 20, 100)
-        # X, Y = np.meshgrid(x_vals, y_vals)
-        # Z = rbf(np.column_stack([X.ravel(), Y.ravel()])).reshape(X.shape)
+        x_vals = np.linspace(-10, 10, 100)
+        y_vals = np.linspace(-10, 10, 100)
+        X, Y = np.meshgrid(x_vals, y_vals)
+        Z = rbf(np.column_stack([X.ravel(), Y.ravel()])).reshape(X.shape)
+
+        self.max_apf = Z.max() # For normalizing reward way points
+        self.min_apf = Z.min()
+        self.max_apf_diff = self.max_apf - self.min_apf
+        self.min_apf_diff = -self.max_apf_diff
 
         # # Plot the RBF-interpolated surface
         # fig = plt.figure(figsize=(10, 7))
@@ -355,8 +360,8 @@ class WheeledRobotEnv(gym.Env):
             self.current_lidar_data = np.full(self.lidar_dim, self.lidar_max_range, float)
             self.lidar_data = np.zeros((1 + self.n_history_frame)*self.lidar_dim)
             self.robot_state = {
-                'x': self.robot_init_pos[0],
-                'y': self.robot_init_pos[1],
+                'x': self.robot_init_pose[0],
+                'y': self.robot_init_pose[1],
                 'theta': 0.0,
                 'linear_vel_x': 0.0,
                 'linear_vel_y': 0.0,
@@ -375,7 +380,7 @@ class WheeledRobotEnv(gym.Env):
             self.robot_state['theta'],
             self.robot_state['linear_vel_x'],
             self.robot_state['linear_vel_y'],
-            self.robot_state['angular_vel'],
+            np.clip(self.robot_state['angular_vel'], -self.robot_max_ang_vel, self.robot_max_ang_vel),
             d_goal
         ], dtype=np.float32)
 
@@ -455,35 +460,37 @@ class WheeledRobotEnv(gym.Env):
     def get_rewards(self, collise):
         reward = 0.0
         reward_components = {}
+        
+        # Reward goal 
+        robot_pos = self.current_obs[:2] # x,y
+        robot_xy_linear_vel = self.current_obs[3:5]
+        robot_ang_vel = self.current_obs[5]
+        robot_d_goal = self.current_obs[6]
 
+        robot_prev_pos = self.prev_obs[:2]
+        robot_prev_d_goal = self.prev_obs[6]
+
+        if robot_d_goal <= self.goal_threshold:
+            reward_components['goal'] = self.reward_coeff['goal']['reach']
+        else:
+            reward_components['goal'] = self.reward_coeff['goal']['coeff']*np.tanh(robot_prev_d_goal - robot_d_goal)
+        
         # Reward collision
         if collise:
             reward_components['collision'] = self.reward_coeff['collision']['collise']
         else:
             reward_components['collision'] = self.reward_coeff['collision']['coeff']*0
-        
-        # Reward goal 
-        robot_pos = self.current_obs[:2] # x,y
-        robot_prev_pos = self.prev_obs[:2]
-        distance_to_goal = np.linalg.norm(robot_pos - self.goal_pos)
-
-        if distance_to_goal <= self.goal_threshold:
-            reward_components['goal'] = self.reward_coeff['goal']['reach']
-        else:
-            prev_distance_to_goal = np.linalg.norm(robot_prev_pos - self.goal_pos)
-            reward_components['goal'] = self.reward_coeff['goal']['coeff']*(prev_distance_to_goal - distance_to_goal)
             
         prev_waypoints_score = self.apf([robot_prev_pos])
         waypoints_score = self.apf([robot_pos])
-        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * ((prev_waypoints_score - waypoints_score)).item()
 
-        # To-do: Adjust
+        apf_diff = prev_waypoints_score - waypoints_score
+        reward_components['waypoint'] = self.reward_coeff['waypoint']['coeff'] * np.tanh(apf_diff)
+
         # Reward velocity
-        linear_vel = np.sqrt(self.current_obs[3]**2 + self.current_obs[4]**2) # linear velocity
-        if linear_vel < 1:
-            reward_components['velocity'] = -0.1
+        reward_components['velocity'] = np.linalg.norm(robot_xy_linear_vel)/(self.robot_max_lin_vel*np.sqrt(2))
 
-        reward_components['angular'] = -np.abs(self.current_obs[5])
+        reward_components['angular'] = -np.abs(robot_ang_vel)/self.robot_max_ang_vel
 
         reward = sum(reward_components.values())
 
@@ -496,7 +503,8 @@ class WheeledRobotEnv(gym.Env):
             "--timeout", "2000",
             "--req", 'name: "saye", position: {x:0.0, y:0.0, z:0.07}'
         ]
-        command[-1] = f'name: "saye", position: {{x:{x}, y:{y}, z:{z}}}'
+        q = quaternion_from_euler(0,0,self.robot_init_pose[-1])
+        command[-1] = f'name: "saye", position: {{x:{x}, y:{y}, z:{z}}}, orientation: {{x:{q[0]}, y:{q[1]}, z:{q[2]}, w:{q[3]}}}'
 
         # Run the command with updated coordinates
         result = subprocess.run(command, capture_output=True, text=True)
@@ -506,10 +514,10 @@ class WheeledRobotEnv(gym.Env):
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
-        self.set_robot_pose(self.robot_init_pos[0], self.robot_init_pos[1], self.robot_init_pos[2])
+        self.set_robot_pose(self.robot_init_pose[0], self.robot_init_pose[1], self.robot_init_pose[2])
         # self.control_world(pause=False)
         # self.get_waypoints()
-        self.control_world(pause=True)
+        # self.control_world(pause=True)
 
         observation = self.get_obs(initialize=True)
         info = {}
