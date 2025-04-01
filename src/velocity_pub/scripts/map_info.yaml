@@ -1,4 +1,4 @@
-using_map_name: "boston_1"
+using_map_name: "home"
 berlin_2:
   start: [7.0, 8.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
   goal: [-0.5, 9.5, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
@@ -9,5 +9,5 @@ depot_with_capsule_goal:
   start: [0.0, 0.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
   goal: [15.0, -2.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
 home:
-  start: [0.0, 0.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
-  goal: [-2.0, 4.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw
+  start: [3.0, 2.0, 0.04, 0.0, 0.0, -1.571] # x, y, z, roll, pitch, yaw
+  goal: [-6.0, 3.0, 0.04, 0.0, 0.0, 0.0] # x, y, z, roll, pitch, yaw

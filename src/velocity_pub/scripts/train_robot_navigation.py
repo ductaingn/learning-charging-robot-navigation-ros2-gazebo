@@ -19,7 +19,7 @@ if __name__ == "__main__":
         map_info = yaml.safe_load(file)
     map_name = str(map_info['using_map_name'])
     start_x, start_y, start_z, start_roll, start_pitch, start_yaw = list(map_info[map_name]['start'])
-    configs['start_pos'] = [start_x, start_y, start_z]
+    configs['start_pose'] = [start_x, start_y, start_z, start_roll, start_pitch, start_yaw]
     goal_x, goal_y, goal_z, goal_roll, goal_pitch, goal_yaw = list(map_info[map_name]['goal'])
     configs['goal_pos'] = [goal_x, goal_y, goal_z]
 

@@ -22,7 +22,7 @@ import pickle
 import matplotlib.pyplot as plt
 
 class WheeledRobotEnv(gym.Env):
-    def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, n_history_frame:int, collision_threshold:float, n_waypoints:int, goal_threshold:float, robot_max_lin_vel:float, robot_max_ang_vel:float, reward_coeff:dict, real_time_factor:float, delta_t:float, start_pos:list[float, float, float], goal_pos:list[float, float, float]):
+    def __init__(self, max_step:int, environment_shape:list, lidar_dim:int, lidar_max_range:float, lidar_min_range:float, n_history_frame:int, collision_threshold:float, n_waypoints:int, goal_threshold:float, robot_max_lin_vel:float, robot_max_ang_vel:float, reward_coeff:dict, real_time_factor:float, delta_t:float, start_pose:list[float, float, float], goal_pos:list[float, float, float]):
         """
         Initialize the WheeledRobotEnv environment.
 
@@ -147,7 +147,7 @@ class WheeledRobotEnv(gym.Env):
         self.kinetic_dim = 7
         self.lidar_start_indx = self.kinetic_dim + (self.n_waypoints+1)*2
 
-        self.robot_init_pos = np.array(start_pos, dtype=float)
+        self.robot_init_pose = np.array(start_pose, dtype=float)
         self.goal_pos:np.ndarray = np.array([goal_pos[0], goal_pos[1]], dtype=float)
 
         # Nav2 Simple Navigator for finding waypoints
@@ -165,8 +165,8 @@ class WheeledRobotEnv(gym.Env):
 
         # Variable to store robot's position and kinematic information from ROS2
         self.robot_state = {
-            'x': self.robot_init_pos[0],           # X position
-            'y': self.robot_init_pos[1],           # Y position
+            'x': self.robot_init_pose[0],           # X position
+            'y': self.robot_init_pose[1],           # Y position
             'theta': 0.0,       # Orientation angle (radians)
             'linear_vel_x': 0.0,  # Linear velocity
             'linear_vel_y': 0.0,  # Linear velocity
@@ -237,9 +237,9 @@ class WheeledRobotEnv(gym.Env):
 
         init_pose = PoseStamped()
         init_pose.header.frame_id = 'map'
-        init_pose.pose.position.x = self.robot_init_pos[0]
-        init_pose.pose.position.y = self.robot_init_pos[1]
-        q = quaternion_from_euler(0,0,0)
+        init_pose.pose.position.x = self.robot_init_pose[0]
+        init_pose.pose.position.y = self.robot_init_pose[1]
+        q = quaternion_from_euler(0,0,self.robot_init_pose[-1])
         init_pose.pose.orientation.x = q[0]
         init_pose.pose.orientation.y = q[1]
         init_pose.pose.orientation.z = q[2]
@@ -360,8 +360,8 @@ class WheeledRobotEnv(gym.Env):
             self.current_lidar_data = np.full(self.lidar_dim, self.lidar_max_range, float)
             self.lidar_data = np.zeros((1 + self.n_history_frame)*self.lidar_dim)
             self.robot_state = {
-                'x': self.robot_init_pos[0],
-                'y': self.robot_init_pos[1],
+                'x': self.robot_init_pose[0],
+                'y': self.robot_init_pose[1],
                 'theta': 0.0,
                 'linear_vel_x': 0.0,
                 'linear_vel_y': 0.0,
@@ -503,7 +503,8 @@ class WheeledRobotEnv(gym.Env):
             "--timeout", "2000",
             "--req", 'name: "saye", position: {x:0.0, y:0.0, z:0.07}'
         ]
-        command[-1] = f'name: "saye", position: {{x:{x}, y:{y}, z:{z}}}'
+        q = quaternion_from_euler(0,0,self.robot_init_pose[-1])
+        command[-1] = f'name: "saye", position: {{x:{x}, y:{y}, z:{z}}}, orientation: {{x:{q[0]}, y:{q[1]}, z:{q[2]}, w:{q[3]}}}'
 
         # Run the command with updated coordinates
         result = subprocess.run(command, capture_output=True, text=True)
@@ -513,10 +514,10 @@ class WheeledRobotEnv(gym.Env):
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
-        self.set_robot_pose(self.robot_init_pos[0], self.robot_init_pos[1], self.robot_init_pos[2])
+        self.set_robot_pose(self.robot_init_pose[0], self.robot_init_pose[1], self.robot_init_pose[2])
         # self.control_world(pause=False)
         # self.get_waypoints()
-        self.control_world(pause=True)
+        # self.control_world(pause=True)
 
         observation = self.get_obs(initialize=True)
         info = {}
