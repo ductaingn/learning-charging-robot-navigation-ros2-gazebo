@@ -34,9 +34,9 @@ Before launching the simulation, choose the desired map and modify the robot's s
 - *"learning_charging_robot_navigation/src/velocity_pub/scripts/map_info.yaml"*
 
 ## Launching the Simulation
-- Start Gazebo Simulation and Spawn the Robot: Launch the Gazebo simulation and spawn the MR-Buggy3 robot:
+- Start Gazebo Simulation and Spawn the Robot: Launch the Gazebo simulation and spawn the Turtlebot3 robot:
 ```sh
-ros2 launch fws_robot_sim mr_buggy3_spawn.launch.py 
+ros2 launch turtlebot3_gazebo ros2_drl.launch.py
 ```
 
 
